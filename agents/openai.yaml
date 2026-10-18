@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goals iTerm Advisor"
+  short_description: "通过 iTerm MCP 委托 Coding CLI，持续监控、决策续跑并验收收尾"
+  default_prompt: "使用 $goals-iterm-skill 指挥 iTerm 中的 Coding CLI 完成当前任务，每次派发后监控反馈，主动处理范围内决策和已中断任务，验收后停止监控。"
