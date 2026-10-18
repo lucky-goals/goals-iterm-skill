@@ -4,6 +4,42 @@
 
 讓支援 skill 的 coding agent 透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的 Claude Code、Codex 等 CLI，持續監控進度、提供決策建議並驗收任務。
 
+## 必要的 MCP：goals-iterm-mcp
+
+本 skill 使用 **[lucky-goals/goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp)** 操作 iTerm2。請先在**負責協調的 agent 用戶端**中安裝並連接該 MCP，再安裝本 skill，最後使用下方任務提示詞。僅安裝 skill 不會提供終端工具。已有 MCP 連線時驗證即可，不必重複安裝。
+
+準備順序：
+
+1. 在執行終端的 Mac 上安裝並開啟 iTerm2，在 **Settings → General → Magic → Python API** 中啟用 API，並在出現授權視窗時批准連線。
+2. 將 goals-iterm-mcp 設定為協調用戶端的本機 stdio 服務。用戶端必須能存取該 Mac；純雲端聊天無法直接操作本機 iTerm2。
+3. 在 iTerm2 中安裝並完成 Claude Code、Codex 或其他目標 CLI 的驗證設定，確認新分頁中也能正常啟動。不要將憑證寫進提示詞。
+4. 驗證 MCP 工具探索及唯讀的 `list_sessions` 呼叫，再安裝本 skill。執行任務需要寫入工具；`--read-only` 服務只能觀察。
+
+完整步驟與版本更新請參閱 [MCP 安裝指南](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.zh-TW.md)。以下範例固定使用其文件中的 `0.1.2`，不表示後續版本不相容。
+
+```text
+請在本機 Mac 上為 [目標用戶端] 安裝 goals-iterm-mcp。
+儲存庫網址：https://github.com/lucky-goals/goals-iterm-mcp
+
+1. 閱讀專案安裝指南，檢查 macOS、iTerm2 與 uv/uvx。
+   若缺少 uv，請依照 uv 官方說明安裝。
+2. 使用 Python 3.12 驗證套件可執行：
+   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+3. 備份用戶端現有 MCP 設定，新增或更新一個名為 iterm 的本機 stdio 服務，
+   保留無關設定並避免重複設定：
+   command：本機 uvx 的絕對路徑
+   args：["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   使用目標用戶端支援的設定格式與位置。
+4. 如有需要，指導我啟用 iTerm2 Python API 並批准授權視窗。
+   依支援的方式重新載入 MCP；需要手動重新啟動時說明具體步驟。
+5. 驗證交握、工具探索及 list_sessions 即可。安裝期間不要讀取終端內容、傳送輸入、
+   建立或關閉視窗，也不要啟動 coding 任務。
+6. 回報設定位置、固定版本與連線結果，區分獨立服務連通與目標用戶端實際載入工具。
+   若有阻礙，說明剩餘步驟；準備完成後繼續依下文安裝 skill。
+```
+
+`serve` 是由用戶端透過 stdio 啟動的 MCP 服務入口，不是 coding CLI。安裝 MCP 不會提供 monitor，也不會替目標 CLI 設定驗證資訊。
+
 ## 透過 coding agent 安裝
 
 將下方提示詞複製給可以存取本機檔案系統的 coding agent，將 `[目標用戶端]` 替換為需要安裝 skill 的用戶端。已有本機儲存庫時，也可以將儲存庫 URL 替換為本機絕對路徑。
@@ -97,3 +133,11 @@
 入口為 [SKILL.md](SKILL.md)，工具語義見 [iterm-tools.md](references/iterm-tools.md)，監控、恢復及行為驗收情境見 [monitoring.md](references/monitoring.md)。這些指令檔案目前使用簡體中文。工具約定依據 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；執行時以實際安裝版本的 schema 為準。
 
 修改後驗證 skill frontmatter 與相對引用，並推演監控協定末尾的情境。實際 CLI 驗證應使用專用測試工作階段，確認任務派發、決策、恢復及監控清理；靜態驗證不代表背景排程或實際 CLI 整合已通過。
+
+## 貢獻與支援
+
+歡迎提交問題回報、流程改進與翻譯。提交 PR 前請閱讀 [貢獻指南](CONTRIBUTING.md)，可重現的問題與建議請透過 [Issues](https://github.com/lucky-goals/goals-iterm-skill/issues) 提交。安全漏洞請依照 [安全政策](SECURITY.md) 私下回報，不要公開終端記錄。貢獻與安全文件目前使用英文。
+
+## 授權條款
+
+[MIT 授權條款](LICENSE)，著作權所有：2026 lucky-goals。

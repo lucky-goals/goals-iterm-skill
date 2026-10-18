@@ -4,6 +4,44 @@
 
 coding agent から [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) を通じて、iTerm2 上の Claude Code、Codex などの CLI に作業を指示する skill です。進捗の監視、判断の支援、完了条件の確認まで継続して行います。
 
+## 必須の MCP：goals-iterm-mcp
+
+この skill は **[lucky-goals/goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp)** を使って iTerm2 を操作します。まず**調整役の agent のクライアント**に MCP を導入して接続し、次にこの skill をインストールして、以下のタスク用プロンプトを使用してください。skill だけでは端末操作ツールは提供されません。MCP が接続済みなら、重複して導入せず接続を確認してください。
+
+準備の順序：
+
+1. 端末を実行する Mac に iTerm2 をインストールして起動し、**Settings → General → Magic → Python API** を有効にします。認可ダイアログが表示されたら接続を許可します。
+2. 調整役のクライアントに goals-iterm-mcp をローカル stdio サーバーとして設定します。クライアントはその Mac にアクセスできる必要があります。クラウドだけで動くチャットからローカル iTerm2 を直接操作することはできません。
+3. iTerm2 に Claude Code、Codex などの対象 CLI をインストールし、認証を済ませます。新しいタブでも正常に起動することを確認し、認証情報をプロンプトに含めないでください。
+4. MCP のツール検出と読み取り専用の `list_sessions` 呼び出しを確認してから、この skill をインストールします。作業の実行には入力用ツールが必要です。`--read-only` サーバーでは監視のみ可能です。
+
+詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.1.2` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
+
+```text
+この Mac 上で [対象クライアント] に goals-iterm-mcp を導入してください。
+リポジトリ：https://github.com/lucky-goals/goals-iterm-mcp
+
+1. プロジェクトのインストールガイドを読み、macOS、iTerm2、uv/uvx を確認してください。
+   uv がなければ、uv の公式手順に従ってインストールしてください。
+2. Python 3.12 でパッケージの起動を確認してください：
+   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+3. クライアントの既存 MCP 設定をバックアップし、iterm という名前のローカル stdio
+   サーバーを追加または更新してください。無関係な設定は保持し、重複を避けてください：
+   command：この Mac の uvx の絶対パス
+   args：["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   対象クライアントが対応する設定形式と配置先を使用してください。
+4. 必要に応じて iTerm2 Python API の有効化と認可ダイアログの操作を案内してください。
+   対応する方法で MCP を再読み込みし、手動で再起動が必要なら手順を示してください。
+5. ハンドシェイク、ツール検出、list_sessions のみで接続を検証してください。
+   導入中は端末内容の読み取り、入力送信、ウィンドウの作成や終了、coding タスクの開始を
+   行わないでください。
+6. 設定の配置先、固定したバージョン、接続結果を報告してください。単体のサーバー接続と、
+   対象クライアントでのツール読み込みを区別し、問題があれば残りの手順を示してください。
+   準備ができたら、続く説明に従って skill をインストールしてください。
+```
+
+`serve` はクライアントが stdio 経由で起動する MCP サーバーの入口であり、coding CLI ではありません。MCP の導入では monitor の提供や対象 CLI の認証設定は行われません。
+
 ## coding agent にインストールを依頼する
 
 以下のプロンプトを、ローカルファイルにアクセスできる coding agent に渡してください。`[対象クライアント]` は skill をインストールするクライアント名に置き換えます。ローカルに取得済みのリポジトリがある場合は、URL をその絶対パスに置き換えることもできます。
@@ -109,3 +147,11 @@ iTerm MCP 経由で端末内の Coding CLI に継続して指示し、以下の�
 入口は [SKILL.md](SKILL.md) です。ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md) を参照してください。これらの指示ファイルは現在、簡体字中国語で記述されています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
 
 変更後は skill の frontmatter と相対リンクを検証し、監視プロトコル末尾のシナリオを確認してください。実際の CLI 検証には専用のテストセッションを使い、指示の送信、判断、復旧、監視の終了処理を確認します。静的検証だけでは、バックグラウンドのスケジューリングや実際の CLI 連携が動作することは保証されません。
+
+## 貢献とサポート
+
+不具合の報告、手順の改善、翻訳を歓迎します。PR を送る前に [貢献ガイド](CONTRIBUTING.md)をお読みください。再現可能な問題や提案は [Issues](https://github.com/lucky-goals/goals-iterm-skill/issues) で受け付けます。脆弱性は [セキュリティポリシー](SECURITY.md)に従い非公開で報告し、端末ログを公開しないでください。貢献ガイドとセキュリティポリシーは現在英語です。
+
+## ライセンス
+
+[MIT License](LICENSE)。Copyright (c) 2026 lucky-goals.

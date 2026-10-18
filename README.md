@@ -4,6 +4,43 @@
 
 Let a coding agent use [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor their progress, advise on decisions, and verify completion.
 
+## Required MCP: goals-iterm-mcp
+
+This skill uses **[lucky-goals/goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp)** to operate iTerm2. Install and connect that MCP server in the **coordinating agent's client**, then install this skill and use the task prompts below. Installing the skill alone does not expose terminal tools. If the MCP is already connected, verify the connection instead of installing a duplicate.
+
+Setup order:
+
+1. On the Mac running the terminals, install and open iTerm2. Enable **Settings → General → Magic → Python API**, and approve its API authorization dialog when prompted.
+2. Configure goals-iterm-mcp as a local stdio server in the coordinating client. The client must be able to access that Mac; a cloud-only chat cannot directly control its local iTerm2.
+3. Install and authenticate the target Claude Code, Codex, or other CLI in iTerm2. Confirm it starts normally, including in new tabs. Keep credentials out of prompts.
+4. Verify MCP tool discovery and a read-only `list_sessions` call, then install this skill. Task execution needs write tools; a `--read-only` server can only observe.
+
+See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.1.2`; it does not assert that future versions are incompatible.
+
+```text
+Please install goals-iterm-mcp for [target client] on this Mac.
+Repository: https://github.com/lucky-goals/goals-iterm-mcp
+
+1. Read the project's installation guide. Check macOS, iTerm2, and uv/uvx.
+   If uv is missing, install it using its official instructions.
+2. Verify the package using Python 3.12:
+   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+3. Back up the client's existing MCP configuration. Add or update one local stdio
+   server named iterm, preserving all unrelated settings and avoiding duplicates:
+   command: the absolute path to uvx
+   args: ["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   Use the target client's supported configuration format and location.
+4. Guide me through enabling the iTerm2 Python API and approving its dialog if needed.
+   Reload MCP using the supported mechanism; explain any required manual restart.
+5. Verify the handshake, tool discovery, and list_sessions only. Do not read terminal
+   contents, send input, create/close windows, or start coding tasks during setup.
+6. Report the configuration location, pinned version, and connection results.
+   Distinguish standalone server connectivity from tools loaded in the target client.
+   Explain any remaining blocker, then continue with the skill installation below.
+```
+
+`serve` is the MCP server entry point, launched by the client over stdio; it is not a coding CLI. MCP installation does not provide a monitor or configure the target CLI's authentication.
+
 ## Install through a coding agent
 
 Copy the prompt below to a coding agent with local filesystem access. Replace `[target client]` with the client where you want to install the skill. For an existing checkout, you can replace the repository URL with its absolute local path.
@@ -110,3 +147,11 @@ Constraints:
 The entry point is [SKILL.md](SKILL.md). See [iterm-tools.md](references/iterm-tools.md) for tool semantics and [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
 
 After changes, validate the skill frontmatter and relative links, then walk through the scenarios in the monitoring protocol. Real CLI checks should use a dedicated test session and cover dispatch, decisions, recovery, and monitor cleanup. Static validation does not establish that background scheduling or live CLI integration works.
+
+## Contributing and support
+
+Bug reports, workflow improvements, and translations are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request, or open an [issue](https://github.com/lucky-goals/goals-iterm-skill/issues) for reproducible problems and suggestions. For vulnerabilities, follow [SECURITY.md](SECURITY.md) and use private reporting rather than posting terminal logs publicly. These contributor documents are currently in English.
+
+## License
+
+[MIT License](LICENSE). Copyright (c) 2026 lucky-goals.
