@@ -54,6 +54,57 @@ and remaining issues. Do not publish.
 
 You can also name an existing session to take over its task. The skill resolves the exact `session_id` first and avoids resubmitting work already in progress.
 
+## Advanced example: pursue a task to completion with a Goal
+
+For a multi-step task, use a Goal in the coordinating Codex chat when the host supports it. The CLI running inside iTerm does not need a separate Goal. A Goal tracks the overall objective; the skill guides coordination, and the monitor observes terminal output. A Goal does not replace a monitor or provide an independent background service. See the [official Goals guide](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
+
+Replace the placeholders below and send this prompt to the coordinating Codex agent. For a host without Goals, omit the Goal creation and completion instructions while keeping the monitoring and acceptance requirements.
+
+```text
+Create and start a Codex Goal. Use $goals-iterm-skill to continuously direct
+a Coding CLI through iTerm MCP until the following task passes acceptance checks.
+
+Project directory: [absolute path]
+Execution CLI: [Claude Code / Codex CLI]
+Target session: [existing nickname or ID; otherwise create a dedicated session]
+
+Objective:
+[Describe the desired final outcome]
+
+Acceptance criteria:
+1. [Observable feature or behavior]
+2. [Relevant tests that must pass]
+3. [Required files, results, or explanation]
+
+Execution requirements:
+- Coordinate, monitor, make decisions, and verify results; have the target CLI
+  perform the development work.
+- Check the session first. If the task is already running, take over monitoring
+  without dispatching it again.
+- After every task, follow-up, decision, or recovery instruction, create or update
+  the same monitor.
+- Use a monitoring mechanism actually available in the host. Without background
+  wakeups, keep polling during the active run and report the limitation honestly;
+  do not merely promise to check later.
+- Make routine technical decisions using the context and project conventions,
+  and advise the CLI so it can continue.
+- Observe while the CLI is working or retrying automatically; do not resend work.
+- Recover only after confirming the task has stopped and will not resume itself.
+  Check what has already completed and use bounded recovery attempts.
+- Do not treat a progress report, idle prompt, or completion claim as proof that
+  the entire task is complete.
+- Request missing acceptance evidence. Once all criteria are met, stop the monitor,
+  mark the Goal complete, and summarize changes, verification, and remaining issues.
+
+Constraints:
+- Follow the project's AGENTS.md.
+- Run relevant targeted tests; avoid full test suites unless necessary.
+- Do not start Python processes with --reload.
+- Publishing, pushing, and destructive operations are not authorized for this task.
+- When my decision is necessary, give the specific question, your recommendation,
+  and the action needed. Preserve context and stop the related automatic writes.
+```
+
 ## Maintenance and validation
 
 The entry point is [SKILL.md](SKILL.md). See [iterm-tools.md](references/iterm-tools.md) for tool semantics and [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
