@@ -114,6 +114,10 @@ Acceptance criteria:
 3. [Required files, results, or explanation]
 
 Execution requirements:
+- Maintain a Markdown audit ledger throughout execution. Record each instruction,
+  CLI response and pending decision, your decision and its basis, actions and results,
+  with timestamps, outer/CLI rounds, and linked event IDs. Announce its path at the
+  start and include the ledger link in the final report.
 - Coordinate, monitor, make decisions, and verify results; have the target CLI
   perform the development work.
 - Check the session first. If the task is already running, take over monitoring
@@ -141,6 +145,14 @@ Constraints:
 - When my decision is necessary, give the specific question, your recommendation,
   and the action needed. Preserve context and stop the related automatic writes.
 ```
+
+## Task audit ledger
+
+Every delegated task now maintains a Markdown audit ledger as it runs. The coordinator records instructions, CLI feedback (including questions and options), decisions and their basis, delivery evidence, recovery, acceptance results, and monitor cleanup. Entries include timestamps with UTC offsets, outer conversation rounds, per-session CLI rounds, and linked event/decision IDs. The outer round is a task-local user-message counter, not an invented native chat ID.
+
+The coordinator announces the absolute ledger path at the start and links it in the final report. Specify a path if desired; otherwise it uses a private host state directory, falling back to `~/.local/state/goals-iterm-skill/audits/`. Ledgers are not automatically committed to your repository. Secrets are redacted; unchanged polls may be consolidated, but decisions and significant feedback remain recorded. This is an append-oriented operational record, not a tamper-proof log or a full terminal recording.
+
+See the [audit protocol](references/audit.md) and [Markdown template](references/audit-template.md), currently in Simplified Chinese. A planned action is recorded before sending, and its actual delivery result is appended afterward. If recording fails, the agent reports the gap and pauses new automatic work instructions rather than silently continuing without an audit trail.
 
 ## Maintenance and validation
 
