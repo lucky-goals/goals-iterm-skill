@@ -1,5 +1,6 @@
 # goals-iterm-skill
 
+[プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 coding agent から [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) を通じて、iTerm2 上の Claude Code、Codex などの CLI に作業を指示する skill です。進捗の監視、判断の支援、完了条件の確認まで継続して行います。

@@ -1,5 +1,6 @@
 # goals-iterm-skill
 
+[專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 讓支援 skill 的 coding agent 透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的 Claude Code、Codex 等 CLI，持續監控進度、提供決策建議並驗收任務。
