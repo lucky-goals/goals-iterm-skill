@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>goals-iterm-skill — 通过 iTerm2 协调 AI 编程代理的 Skill</title>
+<meta name="description" content="goals-iterm-skill 通过 MCP 协调 iTerm2 中的 Claude Code、Codex CLI 等编程代理，提供监控、决策、恢复、验收与审计记录流程。">
+<meta name="google-site-verification" content="RSlia45OxWhqX6iyxyoSFyVtlpCfAS38nRmpzuDwfc4">
+<link rel="canonical" href="https://lucky-goals.github.io/goals-iterm-skill/zh/">
+<link rel="alternate" hreflang="en" href="https://lucky-goals.github.io/goals-iterm-skill/">
+<link rel="alternate" hreflang="zh-CN" href="https://lucky-goals.github.io/goals-iterm-skill/zh/">
+<link rel="alternate" hreflang="x-default" href="https://lucky-goals.github.io/goals-iterm-skill/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="goals-iterm-skill">
+<meta property="og:title" content="goals-iterm-skill — 通过 iTerm2 协调 AI 编程代理的 Skill"><meta property="og:description" content="goals-iterm-skill 通过 MCP 协调 iTerm2 中的 Claude Code、Codex CLI 等编程代理，提供监控、决策、恢复、验收与审计记录流程。"><meta property="og:url" content="https://lucky-goals.github.io/goals-iterm-skill/zh/"><meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#142f4a">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareSourceCode", "name": "goals-iterm-skill", "description": "goals-iterm-skill 通过 MCP 协调 iTerm2 中的 Claude Code、Codex CLI 等编程代理，提供监控、决策、恢复、验收与审计记录流程。", "url": "https://lucky-goals.github.io/goals-iterm-skill/zh/", "codeRepository": "https://github.com/lucky-goals/goals-iterm-skill", "license": "https://opensource.org/license/mit", "inLanguage": "zh-CN", "author": {"@type": "Person", "name": "lucky-goals", "url": "https://github.com/lucky-goals"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">跳至正文</a>
+<header><a class="brand" href="../"><span>↳</span> goals-iterm-skill</a><nav aria-label="主导航"><a href="#install">安装配置</a><a href="https://github.com/lucky-goals/goals-iterm-skill">GitHub ↗</a><a href="../" lang="en" hreflang="en">English</a></nav></header>
+<main id="main">
+<section class="hero" aria-labelledby="headline"><div><div class="eyebrow">Agent Skill / 需要 goals-iterm-mcp / MIT 开源</div><h1 id="headline">把任务交出去，<br>把进展跟到底。</h1><p class="lede">为协调代理提供可重复的工作流程：指挥 iTerm2 中的 Coding CLI，查看进度、处理常规决策、恢复已停止的任务，并验证结果。</p><div class="actions"><a class="button" href="#install">安装配置 ↓</a><a class="button secondary" href="https://github.com/lucky-goals/goals-iterm-skill/blob/main/README.zh-CN.md">阅读文档 ↗</a></div></div><div class="terminal" aria-label="流程示意，非实时终端"><div class="terminal-title"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>工作流程 / 示意</div><div class="terminal-body"><p><span class="prompt">任务 → Claude Code / iTerm2</span><br>定位问题。修复。执行相关测试。</p><p><span class="prompt">观察 → 决策 → 续跑</span><br><span class="comment">发送指令前，先确认执行状态。</span></p><p><span class="prompt">验收 → 记录 → 收尾</span><br><span class="comment">改动、验收证据与审计记录。</span></p></div></div></section>
+<div class="flow" aria-label="连接流程"><span>你的任务</span> <b aria-hidden="true">→</b> <span>协调代理 + Skill</span> <b aria-hidden="true">→</b> <span>通过 MCP 访问 iTerm2</span> <b aria-hidden="true">→</b> <span>Coding CLI</span></div>
+<section aria-labelledby="capabilities"><h2 id="capabilities">围绕你的终端开展工作。</h2><div class="features"><article class="feature"><h3>带着验收标准委托任务</h3><p>创建独立会话，或先确认准确的会话 ID，再接管已有工作。</p></article><article class="feature"><h3>先观察进度，再介入</h3><p>每次下发指令后检查状态，避免重复委托；确认任务已经停止后再恢复。</p></article><article class="feature"><h3>留下可以复核的记录</h3><p>持续维护 Markdown 审计台账，记录指令、反馈、决策、投递结果和验收证据。</p></article></div></section>
+<section class="setup" id="install" aria-labelledby="setup-title"><div><div class="eyebrow">安装与连接</div><h2 id="setup-title">先连接，再协调。</h2><p class="intro">先安装终端连接，再安装 Skill。MCP 提供工具，Skill 提供如何使用这些工具推进任务的流程。</p><p><a href="https://github.com/lucky-goals/goals-iterm-skill/blob/main/README.zh-CN.md">查看完整文档 ↗</a></p></div><div><ol class="steps"><li><strong>连接 goals-iterm-mcp</strong><p>在 Mac 上启用 iTerm2 Python API，将本地 MCP 服务器配置到协调代理的客户端。检查工具发现并调用 list_sessions。</p><p><a href="https://lucky-goals.github.io/goals-iterm-mcp/zh/#install">MCP 安装指南</a></p></li><li><strong>准备执行任务的 CLI</strong><p>在 iTerm2 中安装并登录 Claude Code、Codex CLI 或其他目标 CLI，确认新标签页中也能正常启动。</p></li><li><strong>安装完整 Skill 目录</strong><p>按目标客户端支持的 Skill 机制安装，保留 goals-iterm-skill 目录下的 SKILL.md、references/ 和 agents/，再按客户端要求重新加载。</p><p><a href="https://github.com/lucky-goals/goals-iterm-skill/blob/main/README.zh-CN.md#前置条件与手动安装">完整安装说明</a></p></li><li><strong>明确任务与验收标准</strong><p>指定项目路径和执行 CLI，写出可观察的完成标准，并要求代理使用 goals-iterm-skill。可以从下面的示例开始。</p></li></ol><p class="note">持续监控需要宿主的调度或唤醒机制，或在活跃的代理运行期间轮询。Skill 不自带后台服务；没有唤醒机制时，代理运行结束后无法继续监控。</p></div></section>
+<section class="example" aria-labelledby="example-title"><div class="eyebrow">任务示例</div><h2 id="example-title">把委托要求说清楚。</h2><pre><code>使用 goals-iterm-skill，让 iTerm 中的 Claude Code 修复 /path/to/project 的登录问题。
+先诊断，再修复，只运行相关测试。每次下发指令后监控进度，并处理常规技术决策。
+仅在任务已经停止且不会自行恢复时，处理网络失败并续跑。
+持续记录 Markdown 审计台账。通过验收后停止监控，汇总改动、测试和剩余问题。
+不要发布。</code></pre></section>
+<section aria-labelledby="faq"><h2 id="faq">开始之前。</h2><details><summary>安装 Skill 会自动安装 MCP 吗？</summary><p>不会。需要单独在协调客户端连接 goals-iterm-mcp。仅安装 Skill 不会获得终端工具。</p></details><details><summary>可以接管正在执行的 CLI 会话吗？</summary><p>可以。先确认准确的会话 ID 和当前执行状态，再接管监控，避免重复下发仍在执行的任务。</p></details><details><summary>审计台账会记录什么？</summary><p>包括指令、CLI 反馈、决策及依据、投递结果、恢复、验收证据和收尾操作，附时间戳及关联事件 ID。它是操作记录，不是完整终端录像。</p></details><details><summary>必须使用 Goal 功能吗？</summary><p>不必须。宿主支持 Goal 时可以用来跟踪多步目标；不支持时也可以使用此流程。Goal 不替代监控，也不会自行提供后台唤醒。</p></details></section>
+<section><div class="related"><div><h3>从终端连接开始。</h3><p>goals-iterm-mcp 通过本地 stdio MCP 将协调代理连接到 iTerm2。使用 Skill 前，请先安装并连接它。</p></div><a class="button secondary" href="https://lucky-goals.github.io/goals-iterm-mcp/zh/">goals-iterm-mcp ↗</a></div></section>
+</main><footer><span>© 2026 lucky-goals · MIT</span><span><a href="https://github.com/lucky-goals/goals-iterm-skill">源代码</a> · <a href="https://github.com/lucky-goals/goals-iterm-skill/issues">问题反馈</a> · <a href="https://github.com/lucky-goals/goals-iterm-skill/blob/main/LICENSE">开源许可</a></span></footer>
+</body></html>
