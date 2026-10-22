@@ -1,11 +1,13 @@
 # goals-iterm-skill
 
-Skill version: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
+Skill version: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 Let a coding agent use [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor their progress, advise on decisions, and verify completion.
+
+During inline monitoring, the coordinator posts a brief progress update before each wait: what the task is doing based on the latest evidence, what this wait is for, when it will check again, and what remains to do. It reports stage changes and blockers promptly, states when no new output is available, and avoids invented percentages or completion estimates. These updates go to the user, not the controlled CLI; background monitors remain quiet when nothing changes. See the [progress narration protocol](references/monitoring.md#内联等待的进度旁白).
 
 ## Required MCP: goals-iterm-mcp
 

@@ -1,11 +1,13 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
+Skill バージョン: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 coding agent から [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) を通じて、iTerm2 上の Claude Code、Codex などの CLI に作業を指示する skill です。進捗の監視、判断の支援、完了条件の確認まで継続して行います。
+
+インライン監視では、待機に入るたびに短い進捗報告を行います。最新の観測に基づく現在の作業、今回待っている結果、次回の確認間隔、残りの作業を伝えます。段階の変化や問題は速やかに報告し、新しい出力がなければその旨を明示します。根拠のない進捗率や完了時刻は示しません。報告はユーザー向けであり、操作対象の CLI には送信しません。バックグラウンド監視は変化がない限り通知を控えます。[進捗報告の手順](references/monitoring.md#内联等待的进度旁白)を参照してください。
 
 ## 必須の MCP：goals-iterm-mcp
 

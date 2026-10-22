@@ -1,11 +1,13 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
+Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 讓支援 skill 的 coding agent 透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的 Claude Code、Codex 等 CLI，持續監控進度、提供決策建議並驗收任務。
+
+內聯監控時，協調者在每次等待前輸出簡短旁白：依最新證據說明目前任務在做什麼、本次等待什麼、多久後再檢查，以及後續待辦。階段變化或出現阻礙時及時回報；沒有新輸出則如實說明，不編造百分比或完成時間。旁白傳給使用者，不傳送給受控 CLI；背景監控沒有變化時仍保持安靜。詳見[進度旁白協議](references/monitoring.md#内联等待的进度旁白)。
 
 ## 必要的 MCP：goals-iterm-mcp
 
