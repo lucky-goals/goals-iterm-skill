@@ -1,5 +1,7 @@
 # goals-iterm-skill
 
+Skill version: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
@@ -71,6 +73,47 @@ Repository: https://github.com/lucky-goals/goals-iterm-skill
    Do not claim background monitoring works without an actual wakeup mechanism.
 ```
 
+## Update an existing installation
+
+Give the following prompt to a coding agent when an older copy is already installed. “Latest” means the latest commit on the remote default branch unless you specify a tag or commit SHA. Updating a source checkout does not automatically update a copied installation; upgrading the `goals-iterm-mcp` PyPI package does not update the skill either.
+
+```text
+Please update the existing goals-iterm-skill installation in [target client] to the latest revision.
+Repository: https://github.com/lucky-goals/goals-iterm-skill
+(Optional: specify a tag or commit SHA here.)
+
+1. Locate the skill path and scope actually loaded by the client. Determine whether it is
+   a Git checkout, symlink, copied directory, or client-managed installation. Record its
+   current revision or file state; mark the old revision unknown if it cannot be established.
+   Check local changes and duplicate installations; do not guess paths or add a competing copy.
+2. Back up the complete installation and local changes outside directories scanned for skills.
+   For a symlink, back up the target contents. Record the backup path and preserve audit ledgers,
+   runtime records, custom files, and other skills.
+3. Fetch upstream and resolve the remote default branch's latest commit, or my specified tag/SHA.
+   Record the target SHA; do not describe a stale checkout or uncommitted edits as upstream latest.
+4. Fast-forward a clean Git installation only when it tracks the intended branch. For local edits,
+   divergence, detached HEAD, or another branch, do not reset, force-switch, or discard changes.
+   Prepare upstream in a temporary directory, compare and preserve/merge customizations, and
+   report conflicts that cannot be reconciled. For a symlink, update its real target; for a copied
+   installation, synchronize the complete package, including SKILL.md, references/, and agents/.
+   For a client-managed installation, use its supported updater. Do not replace only SKILL.md.
+   Remove confirmed obsolete package-owned files after backup, retaining unknown files so that
+   old package files do not silently remain mixed with the new revision.
+5. Validate metadata, relative references, and the installed content against the target revision.
+   Reload through the client's supported mechanism; give exact restart/new-session steps if needed.
+   Verify discovery of the updated skill when possible. Copying files does not prove that the
+   current conversation has reloaded them.
+6. Check MCP tool discovery separately, using only list_sessions if a connection check is needed.
+   If new tools are absent, explain the separate MCP upgrade/reload needed; do not change its pin
+   or unrelated configuration. Do not read terminal contents, send input, create/close sessions,
+   or launch tasks while updating the skill.
+7. Report installation and backup paths, old/new revisions, retained local changes, validation,
+   pending reload steps, and rollback instructions. Use a commit SHA when no separate version
+   number exists; state clearly if client loading could not be verified.
+```
+
+For a manual update, identify the installation type and back it up first. In a clean Git installation already tracking the intended branch, run `git fetch origin`, inspect the target, then use `git pull --ff-only`; resolve differences if it cannot fast-forward. For a copied installation, obtain the target commit in a temporary directory, compare and synchronize the complete skill package, check obsolete package-owned files, and reload the client. Update the real target of a symlink installation. To roll back, preserve changes made since the update, restore the backup, and reload; rolling back the skill does not roll back MCP or terminal tasks already performed.
+
 ## Prerequisites and manual installation
 
 The repository root is a skill package. Install the whole directory under the name `goals-iterm-skill` using the host client's supported skill mechanism. Keep `SKILL.md`, `references/`, and `agents/` together so relative references remain valid. Follow the target client's documentation and existing configuration for the installation location and reload procedure.
@@ -78,6 +121,23 @@ The repository root is a skill package. Install the whole directory under the na
 This skill does not install MCP or provide a standalone background service. Connect goals-iterm-mcp in the host client, enable the iTerm2 Python API, and prepare the target CLI and its authentication in the terminal. Required tools cover session listing, screen/history reading, and text/key input; creating terminals also requires the corresponding creation tools.
 
 Continuous monitoring requires host scheduling/wakeups or polling within an active agent run. Without background wakeups, monitoring cannot continue after the agent run ends. The skill requires the agent to report this limitation explicitly.
+
+## Explicit session cleanup
+
+The current MCP source implements four cleanup tools. Use them only when the installed server exposes the corresponding schema; the installed tool schema remains the runtime authority. This section describes the current implementation and makes no package-release or version-change claim.
+
+- `close_session(session_id OR nickname, force=false, dry_run=false)` closes one session.
+- `close_tab(tab_id OR session_id OR nickname, force=false, dry_run=false)` closes one tab.
+- `close_window(window_id OR session_id OR nickname, force=false, dry_run=false)` closes one window.
+- `clean_all_sessions(force=false, dry_run=false)` cleans up sessions within the server-authorized scope.
+
+For the first three tools, provide exactly one selector. IDs must match exactly. A nickname is trimmed and case-folded before an exact match against one Session; for tab/window tools it selects that Session's containing object, never a Tab directly. Ambiguous matches are refused. By default, `clean_all_sessions` closes only confirmed idle sessions and skips busy, waiting, unknown, or otherwise unsafe sessions. It does not infer that a session is “unneeded” or useful; the coordinating agent must honor the requested retention and authorized scope. With `force=true`, it attempts every session in the initial authorized scope, including busy sessions, while still enforcing identifier, permission, target-change, and recovery-safety checks. A direct close refuses the whole affected session/tab/window when preflight finds a busy or unknown session unless force is authorized.
+
+Before any interruption, CLI exit, or native close, the service persists a private recovery receipt containing the target and available CLI/chat UUID, cwd, and resume metadata; an initial receipt-write failure stops the operation before terminal writes. Later receipt-update failures can follow side effects, so inspect the per-session results. It then requests a graceful CLI exit and closes the target only after exit is verified. `dry_run=true` is truly read-only: it sends no terminal input, saves no recovery receipt, renames nothing, and interrupts or closes nothing.
+
+Each session result uses the public fields `interruption`, `exit`, `closure_status`, and `cli_sessions`; chat records may include `cli`, `chat_uuid`, `cwd`, identity source, persistence status, and resume data. When a receipt exists, the operation reports its `recovery_record_id` and `recovery_record_path`. An empty or unknown CLI-history `persistence_status` is not itself a blocker. UUID identity evidence and recovery-receipt safeguards are separate from actual history persistence and resumability, so an ID alone does not guarantee resume. Read the response `status` and the `closed_sessions`, `skipped_sessions`, `failed_sessions`, and `unknown_sessions` arrays even when MCP sets `isError=true`.
+
+The existing monitoring and audit workflow remains in force. Reaching completion does not auto-close a terminal; cleanup requires explicit intent. Reuse existing authorization instead of asking again. Because `clean_all_sessions` can affect unrelated tasks, call it only when the authorized scope matches the server scope, including any configured allowlist. See the [closing and recovery guide](references/closing-and-recovery.md) for the detailed workflow.
 
 ## Example
 
@@ -157,7 +217,7 @@ See the [audit protocol](references/audit.md) and [Markdown template](references
 
 ## Maintenance and validation
 
-The entry point is [SKILL.md](SKILL.md). See [iterm-tools.md](references/iterm-tools.md) for tool semantics and [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
+The entry point is [SKILL.md](SKILL.md). See [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
 
 After changes, validate the skill frontmatter and relative links, then walk through the scenarios in the monitoring protocol. Real CLI checks should use a dedicated test session and cover dispatch, decisions, recovery, and monitor cleanup. Static validation does not establish that background scheduling or live CLI integration works.
 

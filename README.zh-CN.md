@@ -1,5 +1,7 @@
 # goals-iterm-skill
 
+Skill 版本: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+
 [项目官网](https://lucky-goals.github.io/goals-iterm-skill/zh/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
@@ -66,6 +68,40 @@
    唤醒，或 agent 当前执行中的轮询。没有实际唤醒机制时，不要宣称支持后台监控。
 ```
 
+## 更新已安装的旧版本
+
+已安装用户可以把下面的提示词交给 coding agent。“最新版本”默认指远程默认分支上最新的已提交内容；需要固定版本时，请指定 tag 或提交 SHA。更新本地源码仓库不会自动更新通过复制安装的 skill；升级 `goals-iterm-mcp` 的 PyPI 包也不会更新 skill。
+
+```text
+请将 [目标客户端] 中已安装的 goals-iterm-skill 更新到最新版本。
+仓库地址：https://github.com/lucky-goals/goals-iterm-skill
+（如需固定版本，在这里指定 tag 或提交 SHA。）
+
+1. 找到目标客户端实际加载的 skill 路径和作用范围，确认它是 Git 仓库、符号链接、
+   复制目录还是由客户端管理的安装。记录当前提交或文件状态；无法确定旧版本时标未知。
+   检查本地修改与重复安装，不猜测路径，不另装一份导致覆盖优先级混乱。
+2. 在客户端不会扫描为 skill 的位置，备份完整安装目录与本地修改，记录备份路径。
+   符号链接需备份实际目标内容。保留审计台账、运行时记录、用户自定义文件和其他 skill。
+3. 获取上游，确认远程默认分支及其最新提交；若我指定了 tag/SHA，以指定版本为准。
+   记录目标提交 SHA，不把本地旧 checkout 或未提交改动称为上游最新版。
+4. 对干净且跟踪目标分支的 Git 安装，仅做 fast-forward 更新。遇到本地修改、分叉、
+   detached HEAD 或分支不符时，不 reset、不强行切分支或丢弃修改；在临时目录准备
+   上游版本，比较并保留/合并自定义内容，无法兼容的冲突明确说明。
+   符号链接更新其真实目标；复制安装同步完整包（SKILL.md、references/、agents/ 等）；
+   客户端管理的安装使用其支持的更新机制。不要只替换 SKILL.md；确认属于旧包且已废弃的
+   文件在备份后移除，未知文件保留，避免新旧引用混用。
+5. 校验元数据、相对引用及安装内容与目标版本的对应关系。按客户端支持的方式重新加载；
+   需重启或新建会话时说明具体步骤。能够检查时确认客户端实际发现更新后的 skill，
+   不把文件已复制等同于当前会话已经重新加载。
+6. 单独检查 MCP 工具发现；必要时只用 list_sessions 验证连接。若缺少新工具，说明 MCP
+   需要另行升级/重新加载，不擅自更改其固定版本或无关配置。更新 skill 期间不要读取
+   终端正文、发送输入、创建/关闭会话或启动任务。
+7. 报告安装与备份路径、更新前后版本/提交、保留的本地修改、验证结果、待完成的重新加载
+   及回滚步骤。没有独立版本号时使用提交 SHA；无法确认已加载时如实说明。
+```
+
+手动更新时，先定位安装类型并备份。对干净且已跟踪目标分支的 Git 安装，在该目录先 `git fetch origin`，核对目标后执行 `git pull --ff-only`；若不能快进，先处理差异，不强制覆盖。复制安装则在临时目录获取目标提交，比较后同步整个 skill 包，核对旧包废弃文件，再重新加载客户端。通过符号链接安装时操作链接目标。需要回滚时，先保留更新后产生的修改，再恢复备份并重新加载；回滚 skill 不会回滚 MCP 或已执行的终端任务。
+
 ## 前置条件与手动安装
 
 本仓库根目录就是一个 skill 包。通过宿主客户端支持的 skill 安装机制，将整个目录安装为 `goals-iterm-skill`，保留 `SKILL.md`、`references/` 和 `agents/`，确保相对引用有效。安装位置和重新加载步骤以目标客户端文档及现有配置为准。
@@ -73,6 +109,23 @@
 本 skill 不会安装 MCP 或提供独立后台服务。使用前需在宿主中连接 goals-iterm-mcp，启用 iTerm2 Python API，并在目标终端准备好 CLI 及认证。所需工具至少覆盖会话枚举、屏幕/历史读取、文本/按键发送；新建终端还需对应创建工具。
 
 持续监控依赖宿主提供的任务唤醒/调度，或 agent 当前执行中的轮询。没有后台唤醒能力的客户端不能在 agent 结束执行后继续自动监控。skill 会要求明确报告这一限制。
+
+## 显式清理会话
+
+当前 MCP 源码已实现四个清理工具。只有当已安装的服务公开相应 schema 时才使用；运行时以实际安装工具的 schema 为准。本节说明当前实现，不表示某个软件包已发布，也不涉及版本变更。
+
+- `close_session(session_id OR nickname, force=false, dry_run=false)` 关闭一个会话。
+- `close_tab(tab_id OR session_id OR nickname, force=false, dry_run=false)` 关闭一个标签页。
+- `close_window(window_id OR session_id OR nickname, force=false, dry_run=false)` 关闭一个窗口。
+- `clean_all_sessions(force=false, dry_run=false)` 清理服务器授权范围内的会话。
+
+前三个工具必须且只能提供一个定位参数。ID 必须精确匹配。昵称会先去除首尾空白并进行大小写折叠，再精确匹配一个 Session；对标签页/窗口工具，它选择该 Session 所在的容器，不会把昵称直接当作 Tab。匹配有歧义时拒绝。默认情况下，`clean_all_sessions` 只关闭已确认空闲的会话，跳过忙碌、等待、未知或其他无法确认安全的会话。它不会推断会话“无需保留”或是否有用；负责协调的 agent 必须遵守用户要求的保留策略和授权范围。`force=true` 会尝试初始授权范围内的所有会话（包括忙碌会话），但仍执行 ID、权限、目标变化和恢复安全检查。普通关闭在预检发现受影响的 Session/Tab/Window 中有忙碌或未知会话时，会整体拒绝，除非已授权 force。
+
+任何中断、CLI 退出或原生关闭之前，服务都必须先持久化私有恢复回执，其中记录目标以及可获得的 CLI/chat UUID、cwd 和恢复元数据；初始回执写入失败会在终端写入前停止操作；后续回执更新失败时可能已有副作用，需核对逐会话结果。随后请求 CLI 优雅退出，并仅在确认退出后关闭目标。`dry_run=true` 真正只读：不发送终端输入、不保存恢复回执、不改名、不中断、不关闭。
+
+每个会话结果都使用公开字段 `interruption`、`exit`、`closure_status` 和 `cli_sessions`；聊天记录可能包含 `cli`、`chat_uuid`、`cwd`、身份来源、持久化状态和恢复数据。有回执时，操作会返回 `recovery_record_id` 和 `recovery_record_path`。CLI 历史的 `persistence_status` 为空或未知本身不构成阻碍。UUID 身份证据和恢复回执安全保护，与历史是否实际持久化、能否恢复是不同层次；单有 ID 不保证可恢复。即使 MCP 响应的 `isError=true`，也要读取其中的 `status` 以及 `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` 数组。
+
+现有监控和审计流程继续有效。任务完成不代表终端会自动关闭；清理必须有明确意图。复用已有授权，不要重复询问。`clean_all_sessions` 可能影响无关任务，因此只有在已授权范围与服务器范围一致时才调用（包括已配置的 allowlist）。详细流程见[关闭与恢复指南](references/closing-and-recovery.md)。
 
 ## 使用示例
 
@@ -141,7 +194,7 @@
 
 ## 维护与验证
 
-入口是 [SKILL.md](SKILL.md)，工具语义见 [iterm-tools.md](references/iterm-tools.md)，监控、恢复及行为验收场景见 [monitoring.md](references/monitoring.md)。这些指令文件目前使用简体中文。工具约定依据 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；运行时以实际安装版本 schema 为准。
+入口是 [SKILL.md](SKILL.md)，工具语义见 [iterm-tools.md](references/iterm-tools.md)，监控、恢复及行为验收场景见 [monitoring.md](references/monitoring.md)，清理恢复细节见 [closing-and-recovery.md](references/closing-and-recovery.md)。这些指令文件目前使用简体中文。工具约定依据 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；运行时以实际安装版本 schema 为准。
 
 更改后校验 skill frontmatter 与相对引用，并推演监控协议末尾的场景。真实 CLI 验证应使用专用测试会话，确认任务派发、决策、恢复及监控清理；静态校验不代表后台调度或真实 CLI 集成已通过。
 

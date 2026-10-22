@@ -18,7 +18,7 @@ For a bug, open an [issue](https://github.com/lucky-goals/goals-iterm-skill/issu
 
 For documentation changes, check relative links, code fences, and `git diff --check`. If the Codex skill-creator validator is available in your environment, run its `quick_validate.py` against this skill directory; it is optional and is not bundled here.
 
-For behavior changes, walk through the scenarios at the end of [the monitoring protocol](references/monitoring.md). Record the observations supplied to the agent and the action it would take, especially after uncertain delivery, automatic retries, expired callbacks, or partial completion. Also exercise the [audit scenarios](references/audit.md): round and event continuity, pending decisions, redaction, and write failures. Static checks do not prove live integration.
+For behavior changes, walk through the scenarios at the end of [the monitoring protocol](references/monitoring.md). Record the observations supplied to the agent and the action it would take, especially after uncertain delivery, automatic retries, expired callbacks, or partial completion. Also exercise the [audit scenarios](references/audit.md): round and event continuity, pending decisions, redaction, and write failures. Also exercise the [closing and recovery scenarios](references/closing-and-recovery.md): exact nickname scope, selective cleanup, recovery persistence before exit, partial results, and monitor handoff. Static checks do not prove live integration.
 
 Live testing must use a dedicated session and an authorized test task. Record the host, CLI and MCP versions, the tested behavior, and monitor cleanup results. Avoid full test suites unless necessary. Do not start Python processes with `--reload`.
 
