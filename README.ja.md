@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+Skill バージョン: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -121,7 +121,15 @@ goals-iterm-skill を [対象クライアント] にインストールしてく�
 
 各セッション結果は公開フィールド `interruption`、`exit`、`closure_status`、`cli_sessions` を使用します。チャット記録には `cli`、`chat_uuid`、`cwd`、識別情報の取得元、永続化状態、再開データが含まれる場合があります。レシートがある場合、操作は `recovery_record_id` と `recovery_record_path` を返します。CLI 履歴の `persistence_status` が空または不明でも、それだけで阻害要因にはなりません。UUID の識別情報と復旧レシートの安全保護は、履歴が実際に永続化され再開できるかどうかとは別です。ID だけで再開を保証しません。MCP の応答が `isError=true` でも、`status` と `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` の配列を読み取ってください。
 
-既存の監視・監査ワークフローはそのまま適用されます。完了しても端末を自動で閉じず、クリーンアップには明示的な意図が必要です。既存の認可を再利用し、繰り返し承認を求めません。`clean_all_sessions` は無関係なタスクにも影響し得るため、許可された範囲がサーバーの範囲（設定された allowlist を含む）と一致する場合だけ呼び出してください。詳細な手順は[終了・復旧ガイド](references/closing-and-recovery.md)を参照してください。
+### タスク所有リソースの自動回収
+
+受け入れ条件を確認して監視を停止した後、既定ではタスク専用に作成したリソースを自動回収します。終了ツールは内部で復旧レシートを永続化してから、CLI を終了するか端末を閉じます。CLI が「done」と主張しただけでは受け入れの証拠になりません。既存の借用セッションとウィンドウは、タスク用に明示的に採用し、クリーンアップ認可を得ない限り保持します。ユーザーが開いたままにする指定をしたリソースも保持します。
+
+リソースの作成時または明示的な採用時に、起点、所有タスク、正確な Session、Tab、Window ID を記録します。最大で安全な、重複しない所有コンテナを選びます。現在のすべての子孫がこのタスクに属し、完了して回収対象である場合だけタスク専用 Window を使い、それ以外はタスク専用 Tab、さらにそれ以外は所有され回収対象である個々の Session を使います。空であることや専用に見えることだけでは所有を証明できません。クリーンアップ認可のない借用した親、および共有または不明なペインは保持します。allowlist が不完全でコンテナの所有を証明できない場合は、正確な Session 単位を使います。
+
+自動回収では `dry_run=true` でプレビューし、構成を再確認してから、`force=false` で `close_window`、`close_tab`、または `close_session` を呼び出します。グローバルな `clean_all_sessions` は呼び出しません。事前確認で busy、unknown、識別情報の欠落、または初期復旧レシートのエラーが報告された場合は、リソースを保持して報告します。実行開始後のエラーには副作用があり得るため、端末が保持されたと断定せず、実際の結果を確認します。自動で force にしたり、盲目的に再試行したりしません。force の明示的なユーザー認可は、既存の手動フローとして別に扱います。
+
+業務上の完了とクリーンアップ結果を分けて扱います。監査記録には各セッションの CLI/chat UUID、cwd、再開メタデータ、復旧レシート、クリーンアップ結果を書き込みます。paused、failed、canceled のタスクは自動回収しません。既存の監視・監査ワークフローはそのまま適用され、実際にインストールされたツールの schema が実行時の基準です。借用リソース、グローバルなクリーンアップ、force によるクリーンアップには引き続き明示的な認可が必要です。既存の認可を再利用し、繰り返し承認を求めません。`clean_all_sessions` は無関係なタスクにも影響し得るため、許可された範囲がサーバーの範囲（設定された allowlist を含む）と一致する場合だけ呼び出してください。詳細な手順は[自動回収・復旧ガイド](references/automatic-cleanup.md)と[終了・復旧ガイド](references/closing-and-recovery.md)を参照してください。
 
 ## 使用例
 

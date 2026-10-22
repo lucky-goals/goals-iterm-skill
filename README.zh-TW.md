@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+Skill 版本: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -114,7 +114,15 @@ Skill 版本: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 每個工作階段結果都使用公開欄位 `interruption`、`exit`、`closure_status` 與 `cli_sessions`；聊天記錄可能包含 `cli`、`chat_uuid`、`cwd`、身分來源、持久化狀態與恢復資料。有回執時，操作會回傳 `recovery_record_id` 與 `recovery_record_path`。CLI 歷史的 `persistence_status` 為空或未知本身不是阻礙。UUID 身分證據與恢復回執安全防護，和歷史是否實際持久化、能否恢復是不同層次；只有 ID 不保證可恢復。即使 MCP 回應的 `isError=true`，仍要讀取其中的 `status` 以及 `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` 陣列。
 
-現有監控與稽核流程仍然適用。任務完成不代表終端會自動關閉；清理必須有明確意圖。重用既有授權，不要重複詢問。`clean_all_sessions` 可能影響無關任務，因此只有在已授權範圍與伺服器範圍一致時才呼叫（包括已設定的 allowlist）。詳細流程請參閱[關閉與恢復指南](references/closing-and-recovery.md)。
+### 自動回收任務擁有的資源
+
+驗收條件已核實通過、監控已停止後，預設自動回收專為本任務建立的資源。關閉工具內部會先持久化恢復回執，再退出 CLI 或關閉終端。CLI 自稱「done」不等於驗收證據。既有的借用工作階段與視窗預設保留，除非明確將其採用到本任務並取得清理授權。使用者要求保持開啟時，優先保留該資源。
+
+在建立或明確採用資源時，記錄來源、擁有該資源的任務，以及準確的 Session、Tab、Window ID。選擇最大且安全、互不重疊的任務擁有容器：只有當視窗目前所有後代都屬於本任務，且已完成並符合回收條件時，才使用任務獨占 Window；否則使用任務獨占 Tab；再否則只關閉各個任務擁有且符合條件的 Session。僅為空或看起來獨占，不能證明容器歸屬。保留未獲清理授權的借用父層，以及共享或未知窗格。allowlist 不完整、無法證明容器歸屬時，使用精確的 Session。
+
+自動回收先以 `dry_run=true` 預演，再複核成員，使用 `force=false` 呼叫 `close_window`、`close_tab` 或 `close_session`，絕不呼叫全域的 `clean_all_sessions`。預檢發現目標忙碌或未知、身分缺失或初始恢復回執錯誤時，保留資源並回報。開始執行後的錯誤可能已有副作用，應核實實際結果，不能宣稱終端必然保留；不要自動使用 force，也不要盲目重試。使用者明確授權 force 的流程仍按既有手動清理流程另行處理。
+
+將業務任務完成與清理結果分開記錄。稽核記錄應寫入每個工作階段的 CLI/chat UUID、cwd、恢復中繼資料、恢復回執與清理結果。暫停、失敗或取消的任務不自動回收。現有監控與稽核流程仍然適用，實際安裝工具的 schema 仍是執行時依據。借用資源、全域清理與 force 清理仍需明確授權；重用既有授權，不要重複詢問。`clean_all_sessions` 可能影響無關任務，因此只有在已授權範圍與伺服器範圍一致時才呼叫（包括已設定的 allowlist）。詳細流程請參閱[自動回收與恢復指南](references/automatic-cleanup.md)與[關閉與恢復指南](references/closing-and-recovery.md)。
 
 ## 使用範例
 

@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+Skill 版本: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
 
 [项目官网](https://lucky-goals.github.io/goals-iterm-skill/zh/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -125,7 +125,15 @@ Skill 版本: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 每个会话结果都使用公开字段 `interruption`、`exit`、`closure_status` 和 `cli_sessions`；聊天记录可能包含 `cli`、`chat_uuid`、`cwd`、身份来源、持久化状态和恢复数据。有回执时，操作会返回 `recovery_record_id` 和 `recovery_record_path`。CLI 历史的 `persistence_status` 为空或未知本身不构成阻碍。UUID 身份证据和恢复回执安全保护，与历史是否实际持久化、能否恢复是不同层次；单有 ID 不保证可恢复。即使 MCP 响应的 `isError=true`，也要读取其中的 `status` 以及 `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` 数组。
 
-现有监控和审计流程继续有效。任务完成不代表终端会自动关闭；清理必须有明确意图。复用已有授权，不要重复询问。`clean_all_sessions` 可能影响无关任务，因此只有在已授权范围与服务器范围一致时才调用（包括已配置的 allowlist）。详细流程见[关闭与恢复指南](references/closing-and-recovery.md)。
+### 自动回收任务拥有的资源
+
+验收条件已经核实通过、监控已经停止后，默认自动回收专为本任务创建的资源。关闭工具内部会先持久化恢复回执，再退出 CLI 或关闭终端。CLI 声称“done”不等于验收证据。既有的借用会话和窗口默认保留，除非明确将其纳入本任务并取得清理授权。用户要求保持打开时，优先保留该资源。
+
+在创建或明确采用资源时，记录来源、拥有该资源的任务，以及准确的 Session、Tab、Window ID。选择最大且安全、互不重叠的任务拥有容器：只有当窗口当前所有后代都属于本任务且已完成并符合回收条件时，才使用任务独占 Window；否则使用任务独占 Tab；再否则只关闭各个任务拥有且符合条件的 Session。仅为空或看起来独占，不能证明容器归属。保留未获清理授权的借用父级，以及共享或未知窗格。allowlist 不完整、无法证明容器归属时，使用精确的 Session。
+
+自动回收先以 `dry_run=true` 预演，再复核成员，使用 `force=false` 调用 `close_window`、`close_tab` 或 `close_session`，绝不调用全局的 `clean_all_sessions`。预检发现目标忙碌或未知、身份缺失或初始恢复回执错误时，保留资源并报告。执行开始后的错误可能已有副作用，应核实实际结果，不能声称终端必然保留；不要自动使用 force，也不要盲目重试。用户明确授权 force 的流程仍单独按手动清理流程处理。
+
+将业务任务完成与清理结果分开记录。审计记录应写入每个会话的 CLI/chat UUID、cwd、恢复元数据、恢复回执和清理结果。暂停、失败或取消的任务不自动回收。现有监控和审计流程继续有效，实际安装工具的 schema 仍是运行时依据。借用资源、全局清理和 force 清理仍需明确授权；复用已有授权，不要重复询问。`clean_all_sessions` 可能影响无关任务，因此只有在已授权范围与服务器范围一致时才调用（包括已配置的 allowlist）。详细流程见[自动回收与恢复指南](references/automatic-cleanup.md)和[关闭与恢复指南](references/closing-and-recovery.md)。
 
 ## 使用示例
 

@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill version: [v0.2.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.0)
+Skill version: [v0.2.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.1)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -137,7 +137,15 @@ Before any interruption, CLI exit, or native close, the service persists a priva
 
 Each session result uses the public fields `interruption`, `exit`, `closure_status`, and `cli_sessions`; chat records may include `cli`, `chat_uuid`, `cwd`, identity source, persistence status, and resume data. When a receipt exists, the operation reports its `recovery_record_id` and `recovery_record_path`. An empty or unknown CLI-history `persistence_status` is not itself a blocker. UUID identity evidence and recovery-receipt safeguards are separate from actual history persistence and resumability, so an ID alone does not guarantee resume. Read the response `status` and the `closed_sessions`, `skipped_sessions`, `failed_sessions`, and `unknown_sessions` arrays even when MCP sets `isError=true`.
 
-The existing monitoring and audit workflow remains in force. Reaching completion does not auto-close a terminal; cleanup requires explicit intent. Reuse existing authorization instead of asking again. Because `clean_all_sessions` can affect unrelated tasks, call it only when the authorized scope matches the server scope, including any configured allowlist. See the [closing and recovery guide](references/closing-and-recovery.md) for the detailed workflow.
+### Automatic cleanup for task-owned resources
+
+After acceptance criteria are verified and monitoring has stopped, the default automatic cleanup reclaims resources created specifically for the task. The close tool persists its recovery receipt internally before exiting the CLI or closing the terminal. A CLI claim that it is “done” is not acceptance evidence. Existing borrowed sessions and windows remain by default unless they are explicitly adopted for this task with cleanup authorization. Honor a user keep-open override and retain the resource.
+
+Record the origin, owning task, and accurate Session, Tab, and Window IDs when a resource is created or explicitly adopted. Select the largest safe non-overlapping owned container: use an owned exclusive Window only when every current descendant belongs to this task and is completed and eligible; otherwise use an owned exclusive Tab; otherwise use individual owned eligible Sessions. Empty or exclusive-looking state alone does not prove ownership. Retain borrowed parents without cleanup authorization, and shared or unknown panes. If an allowlist is incomplete and container ownership cannot be proven, use exact Sessions.
+
+Automatic cleanup previews with `dry_run=true`, checks membership again, then calls `close_window`, `close_tab`, or `close_session` with `force=false`; it never calls global `clean_all_sessions`. If preflight reports a busy or unknown target, missing identity, or an initial recovery-receipt error, retain the resource and report it. Errors after execution starts may have side effects; verify the actual result without claiming the terminal was retained. Do not auto-force or blindly retry. Explicit user authorization for force cleanup remains a separate manual flow.
+
+Keep business completion separate from the cleanup outcome. Write each session's CLI/chat UUID, cwd, resume metadata, recovery receipt, and cleanup result to the audit record. Paused, failed, and canceled tasks are not auto-cleaned. The existing monitoring and audit workflow remains in force, and the installed tool schema remains the runtime authority. Explicit authorization is still required for borrowed resources, global cleanup, and force cleanup; reuse existing authorization instead of asking again. Because `clean_all_sessions` can affect unrelated tasks, call it only when the authorized scope matches the server scope, including any configured allowlist. See the [automatic cleanup and recovery guide](references/automatic-cleanup.md) and [closing and recovery guide](references/closing-and-recovery.md) for the detailed workflow.
 
 ## Example
 
