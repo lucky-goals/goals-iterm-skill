@@ -58,7 +58,7 @@ Repository: https://github.com/lucky-goals/goals-iterm-skill
    mechanism. Use its documented location and scope; do not guess configuration paths.
 2. Fetch the repository or use the local checkout I specified. Inspect SKILL.md and
    its referenced files. The repository root is the skill package.
-3. Install it as goals-iterm-skill, preserving SKILL.md, references/, and agents/.
+3. Install it as goals-iterm-skill, preserving SKILL.md, references/, agents/, and scripts/.
    Do not copy only SKILL.md. If an installation already exists, compare it first,
    preserve local changes, and back it up before updating. Leave other skills intact.
 4. Check whether this client has goals-iterm-mcp connected. Installing the skill
@@ -97,7 +97,7 @@ Repository: https://github.com/lucky-goals/goals-iterm-skill
    divergence, detached HEAD, or another branch, do not reset, force-switch, or discard changes.
    Prepare upstream in a temporary directory, compare and preserve/merge customizations, and
    report conflicts that cannot be reconciled. For a symlink, update its real target; for a copied
-   installation, synchronize the complete package, including SKILL.md, references/, and agents/.
+   installation, synchronize the complete package, including SKILL.md, references/, agents/, and scripts/.
    For a client-managed installation, use its supported updater. Do not replace only SKILL.md.
    Remove confirmed obsolete package-owned files after backup, retaining unknown files so that
    old package files do not silently remain mixed with the new revision.
@@ -118,11 +118,19 @@ For a manual update, identify the installation type and back it up first. In a c
 
 ## Prerequisites and manual installation
 
-The repository root is a skill package. Install the whole directory under the name `goals-iterm-skill` using the host client's supported skill mechanism. Keep `SKILL.md`, `references/`, and `agents/` together so relative references remain valid. Follow the target client's documentation and existing configuration for the installation location and reload procedure.
+The repository root is a skill package. Install the whole directory under the name `goals-iterm-skill` using the host client's supported skill mechanism. Keep `SKILL.md`, `references/`, `agents/`, and `scripts/` together so relative references remain valid; `scripts/` contains the bundled standard-library helper used by the local session registry. Follow the target client's documentation and existing configuration for the installation location and reload procedure.
 
 This skill does not install MCP or provide a standalone background service. Connect goals-iterm-mcp in the host client, enable the iTerm2 Python API, and prepare the target CLI and its authentication in the terminal. Required tools cover session listing, screen/history reading, and text/key input; creating terminals also requires the corresponding creation tools.
 
 Continuous monitoring requires host scheduling/wakeups or polling within an active agent run. Without background wakeups, monitoring cannot continue after the agent run ends. The skill requires the agent to report this limitation explicitly.
+
+### Session lifecycle and durable coordination state
+
+Follow the [session lifecycle guide](references/session-lifecycle.md) before starting or handing off CLI work. Before launching a new CLI process or session, inspect the cleanup and recovery capabilities actually available in the installed MCP. After the CLI starts, and before dispatching new work, verify conversation persistence and the current Session/Tab/Window identity. If transcript or history is disabled, fix it through a verified launch method supported by that CLI before sending new work; do not restart an already active session merely to change the setting. A CLI identity or recovery receipt alone is not proof that history is persisted or resumable. When recovery is unknown, record an explicit, actionable manual follow-up and never promise automatic closure.
+
+The coordinator keeps a durable local registry at `~/.local/state/goals-iterm-skill/session-registry.json`. Use the bundled standard-library helper `scripts/session_registry.py` for lock, revision, and generation guards. Registry entries are host observations, not MCP authority and not a lock on the real terminal. Only cross-task handoff/reuse invalidates stale completion state; a same-task handoff that changes the coordinator preserves recorded business and cleanup facts, including unknown outcomes, while generation guards still prevent stale writes. Renaming a CLI chat does not create a new identity. Once a per-session task is accepted, put it in `finalizing`: stop the business-writing monitor, but keep the cleanup coordinator running until each owned resource is actually `closed`, explicitly `retained`, or `blocked` with an actionable disposition. Keep any `unknown` cleanup result visible and reconcile it read-only before changing it. Child tasks may be accepted or reclaimed independently once no consumer needs them.
+
+Cleanup rechecks are bounded and may be retried only when an actual scheduler and authorization exist. If a write result is unknown, reconcile it by read-only observation only. Do not default to `force` or a global sweep. Final responses must include resource-accounting totals and reasons, recovery evidence, and pending follow-ups.
 
 ## Explicit session cleanup
 
@@ -156,8 +164,11 @@ Use goals-iterm-skill to have Claude Code in iTerm fix the login issue in
 /path/to/project. Diagnose first, then fix it and run only relevant tests.
 Monitor after every instruction, make routine technical decisions, and recover
 from network failures only when the task has stopped and will not resume itself.
-After acceptance checks pass, stop monitoring and summarize changes, tests,
-and remaining issues. Do not publish.
+After acceptance checks pass, stop the business-writing monitor and complete the
+authorized finalization until owned resources are closed, explicitly retained,
+or blocked with an actionable disposition. Summarize changes, tests,
+resource-accounting totals and reasons, recovery evidence, and pending follow-ups.
+Do not publish.
 ```
 
 You can also name an existing session to take over its task. The skill resolves the exact `session_id` first and avoids resubmitting work already in progress.
@@ -205,8 +216,15 @@ Execution requirements:
   Check what has already completed and use bounded recovery attempts.
 - Do not treat a progress report, idle prompt, or completion claim as proof that
   the entire task is complete.
-- Request missing acceptance evidence. Once all criteria are met, stop the monitor,
-  mark the Goal complete, and summarize changes, verification, and remaining issues.
+- Request missing acceptance evidence. Once all criteria are met, stop the business-writing
+  monitor and complete only the authorized finalization: continue cleanup coordination and record
+  each owned resource as closed, explicitly retained, blocked with an actionable disposition, or
+  unknown. Reconcile an unknown result by read-only observation and do not hide it. Mark the Goal
+  complete only when no required work remains. If required work or cleanup is genuinely blocked,
+  report the host's current state and the action needed, following its status-transition rules;
+  do not force an immediate blocked transition or promise to keep the Goal open indefinitely.
+  Summarize changes, verification, resource-accounting totals and reasons, recovery evidence, and
+  pending follow-ups. Child tasks may be accepted or reclaimed independently when no consumer needs them.
 
 Constraints:
 - Follow the project's AGENTS.md.

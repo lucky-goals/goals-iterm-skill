@@ -2,7 +2,7 @@
 
 ## Scope
 
-Security issues include instructions that cause unintended terminal input, cross-session actions, unauthorized approval, credential disclosure, or replay of non-idempotent work. This skill guides an agent; it does not isolate processes, enforce permissions, or provide a security boundary. Host permissions and the CLI's own controls remain necessary.
+Security issues include instructions that cause unintended terminal input, cross-session actions, unauthorized approval, credential disclosure, or replay of non-idempotent work. This skill guides an agent; it does not isolate processes, enforce permissions, or provide a security boundary. Host permissions and the CLI's own controls remain necessary. The local session registry uses private files, a file lock, and revision checks to coordinate participating agents; its assertions do not authorize terminal operations or prevent users and other clients from reusing a session. Keep records free of credentials, and verify live identity and authorization before acting.
 
 Security fixes are applied to the current `main` branch. Older snapshots have no separate maintenance commitment. Check the skill revision and the installed MCP version when reporting a problem.
 

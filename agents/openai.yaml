@@ -1,4 +1,4 @@
 interface:
   display_name: "Goals iTerm Advisor"
   short_description: "通过 iTerm MCP 委托与监控 Coding CLI，验收后回收任务专用终端并保留恢复信息"
-  default_prompt: "使用 $goals-iterm-skill 指挥 iTerm 中的 Coding CLI 完成当前任务，每次派发后监控反馈，同步记录含时间和轮次的 Markdown 审计台账，主动决策续跑，验收后停止监控，按归属回收本任务专用终端，保留用户借用或要求保留的资源；关闭前由 MCP 保存恢复信息，核对结果并提供台账与恢复记录链接。"
+  default_prompt: "使用 $goals-iterm-skill 指挥 iTerm 中的 Coding CLI 完成当前任务，每次派发后监控反馈，同步记录含时间和轮次的 Markdown 审计台账，主动决策续跑，先登记会话归属并检查恢复能力，验收后停止业务监控并继续收尾，按归属回收本任务专用终端，保留用户借用或要求保留的资源；关闭前由 MCP 保存恢复信息，核对逐会话结果并汇报关闭、保留、受阻、未知资源及后续安排，提供台账与恢复记录链接。"

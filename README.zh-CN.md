@@ -57,7 +57,7 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
    与作用范围，不要猜测配置路径。
 2. 获取仓库，或使用我指定的本地目录。检查 SKILL.md 及其引用文件；仓库根目录
    就是 skill 包。
-3. 以 goals-iterm-skill 为目录名安装，保留 SKILL.md、references/ 和 agents/，
+3. 以 goals-iterm-skill 为目录名安装，保留 SKILL.md、references/、agents/ 和 scripts/，
    不要只复制 SKILL.md。已有安装时先比较差异、保留本地修改并在更新前备份，
    不影响其他 skill。
 4. 检查目标客户端是否已连接 goals-iterm-mcp。安装 skill 不等于安装 MCP 服务；
@@ -89,7 +89,7 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 4. 对干净且跟踪目标分支的 Git 安装，仅做 fast-forward 更新。遇到本地修改、分叉、
    detached HEAD 或分支不符时，不 reset、不强行切分支或丢弃修改；在临时目录准备
    上游版本，比较并保留/合并自定义内容，无法兼容的冲突明确说明。
-   符号链接更新其真实目标；复制安装同步完整包（SKILL.md、references/、agents/ 等）；
+   符号链接更新其真实目标；复制安装同步完整包（SKILL.md、references/、agents/、scripts/ 等）；
    客户端管理的安装使用其支持的更新机制。不要只替换 SKILL.md；确认属于旧包且已废弃的
    文件在备份后移除，未知文件保留，避免新旧引用混用。
 5. 校验元数据、相对引用及安装内容与目标版本的对应关系。按客户端支持的方式重新加载；
@@ -106,11 +106,19 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ## 前置条件与手动安装
 
-本仓库根目录就是一个 skill 包。通过宿主客户端支持的 skill 安装机制，将整个目录安装为 `goals-iterm-skill`，保留 `SKILL.md`、`references/` 和 `agents/`，确保相对引用有效。安装位置和重新加载步骤以目标客户端文档及现有配置为准。
+本仓库根目录就是一个 skill 包。通过宿主客户端支持的 skill 安装机制，将整个目录安装为 `goals-iterm-skill`，保留 `SKILL.md`、`references/`、`agents/` 和 `scripts/`，确保相对引用有效；`scripts/` 包含会话注册表使用的标准库辅助脚本。安装位置和重新加载步骤以目标客户端文档及现有配置为准。
 
 本 skill 不会安装 MCP 或提供独立后台服务。使用前需在宿主中连接 goals-iterm-mcp，启用 iTerm2 Python API，并在目标终端准备好 CLI 及认证。所需工具至少覆盖会话枚举、屏幕/历史读取、文本/按键发送；新建终端还需对应创建工具。
 
 持续监控依赖宿主提供的任务唤醒/调度，或 agent 当前执行中的轮询。没有后台唤醒能力的客户端不能在 agent 结束执行后继续自动监控。skill 会要求明确报告这一限制。
+
+### 会话生命周期与持久协调状态
+
+开始新 CLI 工作或交接任务前，请遵循[会话生命周期指南](references/session-lifecycle.md)。启动新的 CLI 进程或会话前，先检查已安装 MCP 实际提供的清理与恢复能力。CLI 启动后、派发新工作前，核对对话持久化状态以及当前 Session/Tab/Window 身份。如果 transcript 或历史记录被禁用，必须先通过该 CLI 支持且已验证的启动方式修复，再发送新工作；不要为了修改设置而重启已经活跃的会话。CLI 身份或恢复回执本身不证明历史已经持久化或可恢复。恢复状态未知时，要记录明确且可执行的人工后续步骤，绝不承诺自动关闭。
+
+协调者在 `~/.local/state/goals-iterm-skill/session-registry.json` 维护持久化本地注册表。使用随包提供的标准库辅助脚本 `scripts/session_registry.py` 实现锁、revision 和 generation 防护。注册表记录的是宿主观察结果，不是 MCP 的权威，也不是对真实终端的锁。只有跨任务 handoff/复用才会使旧的完成状态失效；同一任务仅更换协调者时，保留已记录的业务和清理事实（包括 unknown 结果），同时由 generation 防护阻止过期写入。重命名 CLI 聊天不产生新的身份。每个会话的任务验收后，将其置为 `finalizing`：停止负责业务写入的 monitor，但继续运行清理协调，直到每个所属资源实际为 `closed`、明确 `retained`，或 `blocked` 且有可执行的处置方案。任何 `unknown` 清理结果都要保持可见，并先通过只读观察对账后再改变。子任务在没有消费者需要后，可以独立验收或回收。
+
+清理复核必须有界，只有存在实际调度器且获得授权时才能重试。写操作结果未知时，只能通过只读观察进行对账。默认不得使用 `force` 或全局清扫。最终回复必须包含资源核算总数及原因、恢复证据和待处理后续事项。
 
 ## 显式清理会话
 
@@ -143,7 +151,9 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 使用 goals-iterm-skill，在 iTerm 中让 Claude Code 修复 /path/to/project
 的登录问题。先诊断再修复，只运行相关测试。每次发出指令后监控返回，
 常规技术决策由你判断，确定网络错误已中断且不会自动续跑时恢复任务。
-验收完成后停止监控并汇总改动、测试和剩余问题。不要发布。
+验收完成后停止负责业务写入的 monitor，并完成已授权的收尾，直到所属资源已关闭、明确保留，
+或已阻塞并记录可执行的处置方案。汇总改动、测试、资源核算总数及原因、恢复证据和待处理后续事项。
+不要发布。
 ```
 
 也可以指定已有会话昵称接管任务。skill 将先枚举并绑定准确的 `session_id`，避免重复派发仍在运行的任务。
@@ -182,8 +192,13 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 - CLI 正在运行或自动重试时继续观察，不重复发送任务。
 - 只有确认任务已经中断且不会自动继续时，才核对已完成工作并有限恢复。
 - 不要把阶段汇报、空闲输入框或 CLI 自称完成当成整个任务完成。
-- 缺少验收证据时继续要求补充；满足全部验收条件后，停止 monitor，
-  将 Goal 标记为完成，并汇总改动、验证结果和剩余问题。
+- 缺少验收证据时继续要求补充；满足全部验收条件后，停止负责业务写入的 monitor，
+  只完成已授权的收尾：继续协调清理，并将每个所属资源记录为已关闭、明确保留、已阻塞且
+  有可执行处置方案，或 unknown。unknown 必须通过只读观察对账，不能隐藏。只有在没有任何
+  必要工作未完成时，才能将 Goal 标记为完成。如果必要工作或清理确实受阻，应如实报告宿主
+  当前状态和所需动作，遵守宿主的状态转换规则；不要强行立即标记 blocked，也不要承诺无限期
+  保持 Goal 开放。汇总改动、验证结果、资源核算总数及原因、恢复证据和待处理后续事项。没有
+  消费者需要时，子任务可以独立验收或回收。
 
 约束：
 - 遵守项目 AGENTS.md。

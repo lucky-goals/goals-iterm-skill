@@ -57,7 +57,7 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
    與適用範圍，不要猜測設定路徑。
 2. 取得儲存庫，或使用我指定的本機目錄。檢查 SKILL.md 及其引用檔案；儲存庫
    根目錄就是 skill 套件。
-3. 以 goals-iterm-skill 為目錄名稱安裝，保留 SKILL.md、references/ 和 agents/，
+3. 以 goals-iterm-skill 為目錄名稱安裝，保留 SKILL.md、references/、agents/ 和 scripts/，
    不要只複製 SKILL.md。已有安裝時先比較差異、保留本機修改並在更新前備份，
    不影響其他 skill。
 4. 檢查目標用戶端是否已連接 goals-iterm-mcp。安裝 skill 不等於安裝 MCP 服務；
@@ -85,7 +85,7 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 2. 將完整安裝目錄及本機修改備份到已發現 skill 目錄之外的明確路徑，避免備份被掃描成第二個 skill。若是 symlink，備份實際目標內容，不能只備份連結本身。保留 audit/runtime 狀態與其他 skills，不要建立重複安裝。
 3. 從遠端取得資料並解析遠端儲存庫預設分支的最新提交；除非我指定 tag 或 commit，否則使用該提交，不要假設預設分支叫 main。記錄目標 SHA，不要把舊 checkout 或未提交修改稱為上游最新版。
 4. 若是乾淨且正在追蹤預期分支的 checkout，只能 fast-forward 更新。若工作區 dirty、已分叉、detached 或位於其他分支，不要 reset、丟棄修改或強制切換；建立新的 upstream checkout 比對，保留並合併本機修改後再更新，無法合併的衝突要明確回報。
-5. 若是 symlink，更新它實際指向的目錄；若是複製安裝，從新的完整 checkout 比對並同步整個 package（包括 SKILL.md、references/、agents/），不要只複製 SKILL.md。備份後只移除已確認屬於 package 且已過時的檔案，不要刪除未知額外檔案；用戶端管理的安裝則使用其支援的更新器。
+5. 若是 symlink，更新它實際指向的目錄；若是複製安裝，從新的完整 checkout 比對並同步整個 package（包括 SKILL.md、references/、agents/、scripts/），不要只複製 SKILL.md。備份後只移除已確認屬於 package 且已過時的檔案，不要刪除未知額外檔案；用戶端管理的安裝則使用其支援的更新器。
 6. 校驗 skill metadata、相對連結及安裝內容是否對應目標提交，依用戶端支援的方式重新載入；若需要手動操作，說明精確步驟或需建立的新 session。確認用戶端實際發現新 revision 與檔案，不要宣稱目前已開啟的 chat 會 hot-reload。
 7. 另外檢查 MCP 連線與工具探索；若要做連線檢查，最多使用唯讀的 list_sessions。更新期間不要讀取終端內容、傳送輸入、建立或關閉視窗或啟動任務。若缺少新工具，分開回報需要升級或重新載入 MCP，不要自動修改其固定版本或無關設定。
 8. 回報安裝位置與範圍、安裝方式、備份路徑、更新前後的 ref/commit SHA、本機修改、驗證與重新載入結果，以及保留本機修改的 rollback 方法。
@@ -95,11 +95,19 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ## 前置條件與手動安裝
 
-本儲存庫根目錄就是一個 skill 套件。透過宿主用戶端支援的 skill 安裝機制，將整個目錄安裝為 `goals-iterm-skill`，保留 `SKILL.md`、`references/` 和 `agents/`，確保相對引用有效。安裝位置與重新載入步驟以目標用戶端文件及現有設定為準。
+本儲存庫根目錄就是一個 skill 套件。透過宿主用戶端支援的 skill 安裝機制，將整個目錄安裝為 `goals-iterm-skill`，保留 `SKILL.md`、`references/`、`agents/` 和 `scripts/`，確保相對引用有效；`scripts/` 包含工作階段註冊表使用的標準函式庫輔助腳本。安裝位置與重新載入步驟以目標用戶端文件及現有設定為準。
 
 本 skill 不會安裝 MCP 或提供獨立背景服務。使用前需在宿主中連接 goals-iterm-mcp、啟用 iTerm2 Python API，並在目標終端準備好 CLI 及驗證設定。所需工具至少涵蓋工作階段列舉、畫面/歷史讀取、文字/按鍵傳送；新增終端還需要對應的建立工具。
 
 持續監控依賴宿主提供的任務喚醒/排程，或 agent 目前執行中的輪詢。沒有背景喚醒能力的用戶端，無法在 agent 結束執行後繼續自動監控。skill 會要求明確回報這項限制。
+
+### 工作階段生命週期與持久協調狀態
+
+開始新的 CLI 工作或交接任務前，請遵循[工作階段生命週期指南](references/session-lifecycle.md)。啟動新的 CLI 程序或工作階段前，先檢查已安裝 MCP 實際提供的清理與恢復能力。CLI 啟動後、派發新工作前，核對對話持久化狀態以及目前的 Session/Tab/Window 身分。若 transcript 或歷史記錄已停用，必須先透過該 CLI 支援且已驗證的啟動方式修復，再傳送新工作；不要為了修改設定而重啟已經活躍的工作階段。CLI 身分或恢復回執本身不代表歷史已持久化或可恢復。恢復狀態未知時，要記錄明確且可執行的人工後續步驟，絕不承諾自動關閉。
+
+協調者在 `~/.local/state/goals-iterm-skill/session-registry.json` 維護持久化本機註冊表。使用隨包提供的標準函式庫輔助腳本 `scripts/session_registry.py` 實作鎖、revision 與 generation 防護。註冊表記錄的是宿主觀察結果，不是 MCP 的權威，也不是對真實終端的鎖。只有跨任務 handoff/重用才會使舊的完成狀態失效；同一任務僅更換協調者時，保留已記錄的業務與清理事實（包括 unknown 結果），同時由 generation 防護阻止過期寫入。重新命名 CLI 聊天不會產生新的身分。每個工作階段的任務驗收後，將其置為 `finalizing`：停止負責業務寫入的 monitor，但繼續執行清理協調，直到每個所屬資源實際為 `closed`、明確 `retained`，或 `blocked` 且有可執行的處置方案。任何 `unknown` 清理結果都要保持可見，並先透過唯讀觀察對帳後再改變。子任務在沒有消費者需要後，可以獨立驗收或回收。
+
+清理複核必須有界，只有存在實際排程器且取得授權時才能重試。寫入結果未知時，只能透過唯讀觀察進行對帳。預設不得使用 `force` 或全域清掃。最終回覆必須包含資源核算總數及原因、恢復證據和待處理後續事項。
 
 ## 明確的工作階段清理
 
@@ -132,7 +140,9 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 使用 goals-iterm-skill，在 iTerm 中讓 Claude Code 修復 /path/to/project
 的登入問題。先診斷再修復，只執行相關測試。每次發出指令後監控回應，
 一般技術決策由你判斷，確定網路錯誤已中斷任務且不會自動繼續時恢復任務。
-驗收完成後停止監控並彙整修改、測試及剩餘問題。不要發布。
+驗收完成後停止負責業務寫入的 monitor，並完成已授權的收尾，直到所屬資源已關閉、明確保留，
+或已阻塞並記錄可執行的處置方案。彙整修改、測試、資源核算總數及原因、恢復證據和待處理後續事項。
+不要發布。
 ```
 
 也可以指定既有工作階段的暱稱來接手任務。skill 會先列舉並綁定正確的 `session_id`，避免重複派發仍在執行的任務。
@@ -171,8 +181,13 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 - CLI 正在執行或自動重試時繼續觀察，不重複傳送任務。
 - 只有確認任務已中斷且不會自動繼續時，才核對已完成工作並進行有限次數的恢復。
 - 不要將階段回報、閒置輸入框或 CLI 自稱完成視為整個任務已完成。
-- 缺少驗收證據時繼續要求補充；滿足全部驗收條件後，停止 monitor，
-  將 Goal 標記為完成，並彙整修改、驗證結果與剩餘問題。
+- 缺少驗收證據時繼續要求補充；滿足全部驗收條件後，停止負責業務寫入的 monitor，
+  只完成已授權的收尾：繼續協調清理，並將每個所屬資源記錄為已關閉、明確保留、已阻塞且
+  有可執行處置方案，或 unknown。unknown 必須透過唯讀觀察對帳，不得隱藏。只有在沒有任何
+  必要工作未完成時，才能將 Goal 標記為完成。若必要工作或清理確實受阻，應如實回報宿主的
+  目前狀態與所需動作，遵守宿主的狀態轉換規則；不要強行立即標記 blocked，也不要承諾無限期
+  保持 Goal 開放。彙整修改、驗證結果、資源核算總數及原因、恢復證據和待處理後續事項。沒有
+  消費者需要時，子任務可以獨立驗收或回收。
 
 限制：
 - 遵守專案 AGENTS.md。

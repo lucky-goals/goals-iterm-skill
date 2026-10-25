@@ -1,10 +1,11 @@
 # MCP 操作约定
 
-本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-22）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
+本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-25；含尚未发布的诊断增量）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
 
 | 工具 | 参数 | 用途 |
 | --- | --- | --- |
 | list_sessions | 无 | 返回 `sessions[]`；每行有 `session_id`、`name`、`window_id`、`tab_id` 和内部 `target`，不读取终端正文 |
+| inspect_sessions | session_id OR nickname（可选，均省略则全部授权可见） | 只读回收能力诊断；仅实际服务公开此工具时使用 |
 | read_screen | session_id | 返回 `screen`（含 lines/光标等）、`captured_at`、`truncated` |
 | read_history | session_id, lines（默认 100，1–2000） | 最近保留历史，含 position/text/wrapped、source_bounds、truncated |
 | send_text | session_id, text | 原样发送 1–16384 UTF-8 字节，不补换行 |
@@ -30,7 +31,7 @@
 
 ## 准确调用与返回解析
 
-- 只有四个关闭工具接受 `nickname`；读取、发送、改名仍需 `session_id`。`rename_session` 使用 `name`，不是 `nickname`。创建工具没有 `name` 参数；需要固定昵称时创建成功后用返回的 ID 改名。显式名称去除首尾空白后为 1–64 字符，禁止控制字符且须无大小写重名。
+- 四个关闭工具和新 `inspect_sessions` 接受 `nickname`；读取、发送、改名仍需 `session_id`。`rename_session` 使用 `name`，不是 `nickname`。创建工具没有 `name` 参数；需要固定昵称时创建成功后用返回的 ID 改名。显式名称去除首尾空白后为 1–64 字符，禁止控制字符且须无大小写重名。
 - `command` 是可选的启动命令，提供时必须为 1–16384 UTF-8 字节，不能用空字符串表示省略。不要向公开工具传内部的 `target`、PID、chat UUID、`resume`、`session_ids` 或 `suppress_broadcast` 字段。
 - `list_sessions` 的 `sessions` 只有服务 allowlist 内的会话；看不到兄弟分屏不代表整个 Tab/Window 均获授权。容器预演/关闭仍可能返回 `OUT_OF_SCOPE`。allowlist 模式禁止创建窗口/标签页。
 - 关闭工具返回 MCP `CallToolResult`：优先读取 `structuredContent`，宿主未暴露时解析 `content` 的 JSON 文本；也检查 `isError`。参数验证可能直接报工具错误而没有关闭结果；连接失败等早期错误也可能省略 `target/blocking_sessions`，按可选字段读取。普通读写工具的错误不能按关闭结果结构强行解析。
@@ -76,6 +77,18 @@
 ```
 
 预演后，在授权与范围仍一致时使用同一工具执行（省略 `dry_run` 或设为 `false`）。只有已授权中断才传 `force:true`；新调用会重新采样，全局清理不会固定在前一次预演的列表。需要固定具体会话集合时改按已核对的 Session ID 逐个关闭，并在每次调用前核对状态。
+
+## 只读回收能力诊断
+
+新源码提供 `inspect_sessions`，read-only 模式也可使用；先发现工具再调用。准确 ID 与昵称互斥，均省略时只诊断 allowlist 可见会话；单任务优先指定已绑定 ID。返回 `sessions[]`，分列 prompt 可用性、process 身份/TTY/作业数量、CLI 当前身份/持久化/活动证据、terminal_activity、business_acceptance 和 close_readiness。`business_acceptance=not_observed`：MCP 不替协调者验收业务。
+
+`close_readiness.status=eligible_if_unchanged` 只是当次证据下的条件性候选，`authorization=not_granted`，不替代归属、用户授权、dry_run 或关闭前复核。检查具体 `reason`、`remediation` 与 CLI `evidence_gap`；不将单个 ready 布尔值作为关闭指令。该工具不写恢复回执，不退出/关闭/发按键，不返回原始命令参数、环境或日志；它仍会读取必要的进程和 CLI 元数据。
+
+缺 prompt 与缺进程信息分别报告；明确活动/停止作业可判 busy，但未观察到作业不单独证明 idle。CLI 身份可已验证而活动仍未知：普通登记只是线索，缺当次进程实例与当前对话证据不能视为 verified；旧缓存和启动 UUID 不能证明当前对话。当前源码尚未提供可用于所有 CLI 的可信实时 lifecycle hook，也没有公开任意 PID/UUID 注册入口；诊断不能补造该能力。已安装旧版没有工具时按 [启动检查](session-lifecycle.md) 降级到准确目标的关闭预演。
+
+```json
+{"tool":"inspect_sessions","arguments":{"session_id":"session-1"}}
+```
 
 ## 输入和投递语义
 
