@@ -1,6 +1,6 @@
 # MCP 操作约定
 
-本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-25；含尚未发布的诊断增量）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
+本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-25；对应 MCP 0.2.1）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
 
 | 工具 | 参数 | 用途 |
 | --- | --- | --- |
@@ -80,7 +80,7 @@
 
 ## 只读回收能力诊断
 
-新源码提供 `inspect_sessions`，read-only 模式也可使用；先发现工具再调用。准确 ID 与昵称互斥，均省略时只诊断 allowlist 可见会话；单任务优先指定已绑定 ID。返回 `sessions[]`，分列 prompt 可用性、process 身份/TTY/作业数量、CLI 当前身份/持久化/活动证据、terminal_activity、business_acceptance 和 close_readiness。`business_acceptance=not_observed`：MCP 不替协调者验收业务。
+MCP 0.2.1 提供 `inspect_sessions`，read-only 模式也可使用；先发现工具再调用。准确 ID 与昵称互斥，均省略时只诊断 allowlist 可见会话；单任务优先指定已绑定 ID。返回 `sessions[]`，分列 prompt 可用性、process 身份/TTY/作业数量、CLI 当前身份/持久化/活动证据、terminal_activity、business_acceptance 和 close_readiness。`business_acceptance=not_observed`：MCP 不替协调者验收业务。
 
 `close_readiness.status=eligible_if_unchanged` 只是当次证据下的条件性候选，`authorization=not_granted`，不替代归属、用户授权、dry_run 或关闭前复核。检查具体 `reason`、`remediation` 与 CLI `evidence_gap`；不将单个 ready 布尔值作为关闭指令。该工具不写恢复回执，不退出/关闭/发按键，不返回原始命令参数、环境或日志；它仍会读取必要的进程和 CLI 元数据。
 

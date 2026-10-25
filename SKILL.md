@@ -2,7 +2,7 @@
 name: goals-iterm-skill
 description: 通过 goals-iterm-mcp 指挥 iTerm2 中的 Claude Code、Codex 等 Coding CLI，持续监控、决策续跑并验收收尾，同步记录含时间和轮次的 Markdown 审计台账。用于委托或接管终端中的 Coding CLI 工作，验收后回收本任务专用终端，以及按要求关闭、清理和恢复会话；不用于普通终端查询或只安装 MCP。
 metadata:
-  version: "0.2.2"
+  version: "0.2.3"
 ---
 
 # Goals iTerm Skill

@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
+Skill バージョン: [v0.2.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.3)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -20,7 +20,7 @@ coding agent から [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm
 3. iTerm2 に Claude Code、Codex などの対象 CLI をインストールし、認証を済ませます。新しいタブでも正常に起動することを確認し、認証情報をプロンプトに含めないでください。
 4. MCP のツール検出と読み取り専用の `list_sessions` 呼び出しを確認してから、この skill をインストールします。作業の実行には入力用ツールが必要です。`--read-only` サーバーでは監視のみ可能です。
 
-詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.1.2` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
+詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.2.1` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
 
 ```text
 この Mac 上で [対象クライアント] に goals-iterm-mcp を導入してください。
@@ -29,11 +29,11 @@ coding agent から [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm
 1. プロジェクトのインストールガイドを読み、macOS、iTerm2、uv/uvx を確認してください。
    uv がなければ、uv の公式手順に従ってインストールしてください。
 2. Python 3.12 でパッケージの起動を確認してください：
-   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.1 --help
 3. クライアントの既存 MCP 設定をバックアップし、iterm という名前のローカル stdio
    サーバーを追加または更新してください。無関係な設定は保持し、重複を避けてください：
    command：この Mac の uvx の絶対パス
-   args：["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   args：["--python", "3.12", "goals-iterm-mcp@0.2.1", "serve"]
    対象クライアントが対応する設定形式と配置先を使用してください。
 4. 必要に応じて iTerm2 Python API の有効化と認可ダイアログの操作を案内してください。
    対応する方法で MCP を再読み込みし、手動で再起動が必要なら手順を示してください。

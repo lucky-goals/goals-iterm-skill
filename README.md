@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill version: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
+Skill version: [v0.2.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.3)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -20,7 +20,7 @@ Setup order:
 3. Install and authenticate the target Claude Code, Codex, or other CLI in iTerm2. Confirm it starts normally, including in new tabs. Keep credentials out of prompts.
 4. Verify MCP tool discovery and a read-only `list_sessions` call, then install this skill. Task execution needs write tools; a `--read-only` server can only observe.
 
-See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.1.2`; it does not assert that future versions are incompatible.
+See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.2.1`; it does not assert that future versions are incompatible.
 
 ```text
 Please install goals-iterm-mcp for [target client] on this Mac.
@@ -29,11 +29,11 @@ Repository: https://github.com/lucky-goals/goals-iterm-mcp
 1. Read the project's installation guide. Check macOS, iTerm2, and uv/uvx.
    If uv is missing, install it using its official instructions.
 2. Verify the package using Python 3.12:
-   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.1 --help
 3. Back up the client's existing MCP configuration. Add or update one local stdio
    server named iterm, preserving all unrelated settings and avoiding duplicates:
    command: the absolute path to uvx
-   args: ["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   args: ["--python", "3.12", "goals-iterm-mcp@0.2.1", "serve"]
    Use the target client's supported configuration format and location.
 4. Guide me through enabling the iTerm2 Python API and approving its dialog if needed.
    Reload MCP using the supported mechanism; explain any required manual restart.

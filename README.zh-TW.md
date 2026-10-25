@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.2)
+Skill 版本: [v0.2.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.3)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -20,7 +20,7 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 3. 在 iTerm2 中安裝並完成 Claude Code、Codex 或其他目標 CLI 的驗證設定，確認新分頁中也能正常啟動。不要將憑證寫進提示詞。
 4. 驗證 MCP 工具探索及唯讀的 `list_sessions` 呼叫，再安裝本 skill。執行任務需要寫入工具；`--read-only` 服務只能觀察。
 
-完整步驟與版本更新請參閱 [MCP 安裝指南](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.zh-TW.md)。以下範例固定使用其文件中的 `0.1.2`，不表示後續版本不相容。
+完整步驟與版本更新請參閱 [MCP 安裝指南](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.zh-TW.md)。以下範例固定使用其文件中的 `0.2.1`，不表示後續版本不相容。
 
 ```text
 請在本機 Mac 上為 [目標用戶端] 安裝 goals-iterm-mcp。
@@ -29,11 +29,11 @@ Skill 版本: [v0.2.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 1. 閱讀專案安裝指南，檢查 macOS、iTerm2 與 uv/uvx。
    若缺少 uv，請依照 uv 官方說明安裝。
 2. 使用 Python 3.12 驗證套件可執行：
-   uvx --python 3.12 goals-iterm-mcp@0.1.2 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.1 --help
 3. 備份用戶端現有 MCP 設定，新增或更新一個名為 iterm 的本機 stdio 服務，
    保留無關設定並避免重複設定：
    command：本機 uvx 的絕對路徑
-   args：["--python", "3.12", "goals-iterm-mcp@0.1.2", "serve"]
+   args：["--python", "3.12", "goals-iterm-mcp@0.2.1", "serve"]
    使用目標用戶端支援的設定格式與位置。
 4. 如有需要，指導我啟用 iTerm2 Python API 並批准授權視窗。
    依支援的方式重新載入 MCP；需要手動重新啟動時說明具體步驟。
