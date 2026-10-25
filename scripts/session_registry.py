@@ -49,6 +49,7 @@ CLEANUP_STATUSES = frozenset({"pending", "closing", "closed", "retained", "block
 RECOVERY_STATUSES = frozenset({"unknown", "ready", "degraded", "not_applicable"})
 COORDINATOR_PHASES = frozenset({"active", "finalizing", "settled"})
 MONITOR_STATUSES = frozenset({"unknown", "running", "stopped", "failed"})
+MONITOR_MODES = frozenset({"inline", "background", "none", "unknown"})
 
 REQUIRED_FIELDS = frozenset(
     {"session_id", "owner_task_id", "coordinator_id", "origin", "cleanup_policy", "audit_path"}
@@ -101,6 +102,7 @@ OPTIONAL_FIELDS = frozenset(
         "owned_container",
         "evidence",
         "monitor_status",
+        "monitor_mode",
         "cleanup_reason",
         "cleanup_authorization",
         "retention_reason",
@@ -125,6 +127,7 @@ RESET_ON_NEW_GENERATION = (
     "acceptance_evidence",
     "recovery_record_path",
     "monitor_status",
+    "monitor_mode",
     "remaining_work",
     "chat_uuid",
     "identity_source",
@@ -139,6 +142,7 @@ IDENTITY_CHANGE_FORBIDDEN_FIELDS = frozenset(
         "recovery_status",
         "coordinator_phase",
         "monitor_status",
+        "monitor_mode",
         "cleanup_reason",
         "retention_reason",
         "retain_until",
@@ -220,6 +224,9 @@ def _validate_record(record: Mapping[str, Any]) -> dict[str, Any]:
     result.setdefault("recovery_status", "unknown")
     result.setdefault("coordinator_phase", "active")
     result.setdefault("monitor_status", "unknown")
+    # Additive v1 field: older state files omit this and must remain readable
+    # without assuming that a monitor was inline or scheduled.
+    result.setdefault("monitor_mode", "unknown")
     for field in ("session_id", "owner_task_id", "coordinator_id"):
         _require_nonempty_string(result[field], field)
     if result["origin"] not in ORIGINS:
@@ -237,8 +244,9 @@ def _validate_record(record: Mapping[str, Any]) -> dict[str, Any]:
         ("recovery_status", RECOVERY_STATUSES),
         ("coordinator_phase", COORDINATOR_PHASES),
         ("monitor_status", MONITOR_STATUSES),
+        ("monitor_mode", MONITOR_MODES),
     ):
-        if field in result and result[field] not in allowed:
+        if field in result and (not isinstance(result[field], str) or result[field] not in allowed):
             _fail(f"{field} must be one of: {', '.join(sorted(allowed))}")
 
     for field in ("created_at", "updated_at", "handoff_at", "retain_until", "next_check_at"):
@@ -658,6 +666,7 @@ def handoff_record(
             # old monitor unable to act until the new coordinator rechecks it.
             updated["generation"] = record["generation"] + 1
             updated["monitor_status"] = "unknown"
+            updated["monitor_mode"] = "unknown"
         updated["handoff_reason"] = reason
         updated["handoff_at"] = _utc_now()
         if audit_path is not None:
@@ -687,6 +696,7 @@ def list_records(
 
 
 def _report_row(record: Mapping[str, Any]) -> dict[str, Any]:
+    # monitor_mode is reported as declared; it is not a liveness assertion.
     row = dict(record)
     reasons: list[str] = []
     cleanup_status = record["cleanup_status"]
@@ -738,6 +748,7 @@ def report_records(
             "cleanup_status": counts("cleanup_status"),
             "recovery_status": counts("recovery_status"),
             "coordinator_phase": counts("coordinator_phase"),
+            "monitor_mode": counts("monitor_mode"),
             "schedule": {"scheduled": scheduled_count, "unscheduled": len(rows) - scheduled_count},
         },
         "resources": rows,
@@ -760,6 +771,7 @@ def _parser() -> argparse.ArgumentParser:
             "cleanup_status=pending|closing|closed|retained|blocked|unknown; "
             "recovery_status=unknown|ready|degraded|not_applicable; "
             "coordinator_phase=active|finalizing|settled; monitor_status=unknown|running|stopped|failed."
+            " monitor_mode=inline|background|none|unknown; only schedule_handle determines schedule_status."
             " owned_container may contain only non-empty-string-or-null tab_id, window_id, basis."
             " cleanup_authorization is an assertion only; retain->auto_owned requires a new value in that patch."
         ),

@@ -1,6 +1,6 @@
 # MCP 操作约定
 
-本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-25；对应 MCP 0.2.1）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
+本约定已按 goals-iterm-mcp 当前源码 `direct.py`、`closing.py`、`closing_backend.py` 和 `cli_recovery.py` 校对（2026-10-26；对应 MCP 0.2.2）。源码实现不代表已安装服务已更新。宿主工具名可带不同命名空间，按以下短名匹配；若已安装版本的 schema 不同，先检查差异再调用。
 
 | 工具 | 参数 | 用途 |
 | --- | --- | --- |

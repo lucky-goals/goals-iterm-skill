@@ -60,6 +60,7 @@ class SessionRegistryTests(unittest.TestCase):
         self.assertEqual(result["recovery_status"], "unknown")
         self.assertEqual(result["coordinator_phase"], "active")
         self.assertEqual(result["monitor_status"], "unknown")
+        self.assertEqual(result["monitor_mode"], "unknown")
         self.assertTrue(result["created_at"].endswith("Z"))
         self.assertTrue(result["updated_at"].endswith("Z"))
         self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o600)
@@ -96,6 +97,8 @@ class SessionRegistryTests(unittest.TestCase):
     def test_identity_update_advances_generation_and_clears_old_evidence(self) -> None:
         self.register(
             tab_id="old-tab",
+            monitor_mode="background",
+            schedule_handle="scheduler-old-generation",
             chat_uuid="old-chat",
             process_identity={"pid": 12},
             owned_container={"tab_id": "old-tab", "window_id": "old-window", "basis": "created"},
@@ -119,6 +122,8 @@ class SessionRegistryTests(unittest.TestCase):
         self.assertEqual(rebound["cleanup_status"], "pending")
         self.assertEqual(rebound["recovery_status"], "unknown")
         self.assertEqual(rebound["coordinator_phase"], "active")
+        self.assertEqual(rebound["monitor_mode"], "unknown")
+        self.assertNotIn("schedule_handle", rebound)
         for field in (
             "chat_uuid",
             "process_identity",
@@ -217,6 +222,7 @@ class SessionRegistryTests(unittest.TestCase):
             cleanup_authorization="same-task authorization",
             remaining_work=["confirm result"],
             monitor_status="running",
+            monitor_mode="background",
             schedule_handle="scheduler-1",
             next_check_at="2026-10-25T15:00:00Z",
             owned_container={"tab_id": "tab-1", "basis": "created"},
@@ -234,6 +240,7 @@ class SessionRegistryTests(unittest.TestCase):
         self.assertEqual(handed["remaining_work"], ["confirm result"])
         self.assertEqual(handed["owned_container"]["tab_id"], "tab-1")
         self.assertEqual(handed["monitor_status"], "unknown")
+        self.assertEqual(handed["monitor_mode"], "unknown")
         self.assertEqual(handed["schedule_handle"], "scheduler-1")
         self.assertEqual(handed["next_check_at"], "2026-10-25T15:00:00Z")
 
@@ -332,17 +339,62 @@ class SessionRegistryTests(unittest.TestCase):
             coordinator_phase="settled",
             cleanup_status="closed",
             monitor_status="stopped",
+            monitor_mode="inline",
             next_check_at="2026-10-25T15:00:00Z",
         )
-        row = registry.report_records(self.state)["resources"][0]
+        report = registry.report_records(self.state)
+        row = report["resources"][0]
+        self.assertEqual(row["monitor_mode"], "inline")
         self.assertEqual(row["schedule_status"], "unscheduled")
-        self.assertTrue(registry.report_records(self.state)["settled"])
+        self.assertEqual(report["counts"]["monitor_mode"], {"inline": 1})
+        self.assertEqual(report["counts"]["schedule"]["unscheduled"], 1)
+        # The mode describes where monitoring would run; it is not evidence
+        # that the inline coordinator is still alive.
+        self.assertTrue(report["settled"])
         scheduled = registry.update_record("S1", "C1", 1, 1, {"schedule_handle": "scheduler-1"}, self.state)
         self.assertEqual(registry.report_records(self.state)["resources"][0]["schedule_status"], "scheduled")
         self.assertEqual(scheduled["revision"], 2)
         empty_state = Path(self.tempdir.name) / "empty.json"
         empty_report = registry.report_records(empty_state, task_id="missing")
         self.assertFalse(empty_report["settled"])
+
+    def test_legacy_v1_record_without_monitor_mode_reads_as_unknown_without_rewrite(self) -> None:
+        self.register(
+            schedule_handle="scheduler-legacy",
+            monitor_status="running",
+        )
+        state = json.loads(self.state.read_text(encoding="utf-8"))
+        del state["records"]["S1"]["monitor_mode"]
+        self.state.write_text(json.dumps(state), encoding="utf-8")
+        self.state.chmod(0o600)
+        legacy_bytes = self.state.read_bytes()
+
+        record = registry.list_records(self.state)[0]
+        report = registry.report_records(self.state)
+        row = report["resources"][0]
+
+        self.assertEqual(record["monitor_mode"], "unknown")
+        self.assertEqual(row["monitor_mode"], "unknown")
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(row["schedule_status"], "scheduled")
+        self.assertEqual(self.state.read_bytes(), legacy_bytes)
+
+    def test_cross_task_handoff_clears_monitor_mode_and_old_schedule_handle(self) -> None:
+        self.register(
+            monitor_mode="background",
+            schedule_handle="scheduler-old-task",
+            cleanup_status="closed",
+            coordinator_phase="settled",
+        )
+        handed = registry.handoff_record(
+            "S1", "C1", 1, 1, "C2", "T2", "new task", self.state, "/tmp/t2.md"
+        )
+        self.assertEqual(handed["monitor_mode"], "unknown")
+        self.assertNotIn("schedule_handle", handed)
+
+    def test_monitor_mode_enum_is_validated(self) -> None:
+        with self.assertRaisesRegex(registry.RegistryError, "monitor_mode must be one of"):
+            self.register(monitor_mode="daemon")
 
     def test_active_failed_or_unknown_monitor_is_not_settled(self) -> None:
         for index, monitor_status in enumerate(("running", "failed", "unknown"), start=1):
@@ -444,6 +496,7 @@ class SessionRegistryTests(unittest.TestCase):
                 registry.main(["--help"])
         self.assertEqual(raised.exception.code, 0)
         self.assertIn("coordinator_phase=active|finalizing|settled", help_output.getvalue())
+        self.assertIn("monitor_mode=inline|background|none|unknown", help_output.getvalue())
 
 
 if __name__ == "__main__":  # pragma: no cover

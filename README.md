@@ -1,13 +1,13 @@
 # goals-iterm-skill
 
-Skill version: [v0.2.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.3)
+Skill version: [v0.2.4](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.2.4)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-Let a coding agent use [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor their progress, advise on decisions, and verify completion.
+When this skill is activated to delegate, take over, or continue a task, the coordinating agent acts as the root orchestrator. It uses [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor progress, make routine decisions, and verify completion. Follow the [execution boundary](references/orchestrator.md): project writes, artifacts, tests, builds, dependency/configuration/service changes, and Git mutations go through the terminal CLI; the root agent and native subagents use read-only project access for context, acceptance, and review. Read-only Git inspection is allowed. Publishing still requires explicit authorization.
 
-During inline monitoring, the coordinator posts a brief progress update before each wait: what the task is doing based on the latest evidence, what this wait is for, when it will check again, and what remains to do. It reports stage changes and blockers promptly, states when no new output is available, and avoids invented percentages or completion estimates. These updates go to the user, not the controlled CLI; background monitors remain quiet when nothing changes. See the [progress narration protocol](references/monitoring.md#内联等待的进度旁白).
+Inline monitoring in the current execution is the default. Before each wait, the coordinator posts a brief evidence-based update to the user, reports stage changes and blockers, and does not invent percentages or completion estimates. Background monitoring is used only when explicitly requested and a real host wakeup or scheduler handle is verified. See the [progress narration protocol](references/monitoring.md#内联等待的进度旁白).
 
 ## Required MCP: goals-iterm-mcp
 
@@ -20,7 +20,7 @@ Setup order:
 3. Install and authenticate the target Claude Code, Codex, or other CLI in iTerm2. Confirm it starts normally, including in new tabs. Keep credentials out of prompts.
 4. Verify MCP tool discovery and a read-only `list_sessions` call, then install this skill. Task execution needs write tools; a `--read-only` server can only observe.
 
-See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.2.1`; it does not assert that future versions are incompatible.
+See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.2.2`; it does not assert that future versions are incompatible.
 
 ```text
 Please install goals-iterm-mcp for [target client] on this Mac.
@@ -29,11 +29,11 @@ Repository: https://github.com/lucky-goals/goals-iterm-mcp
 1. Read the project's installation guide. Check macOS, iTerm2, and uv/uvx.
    If uv is missing, install it using its official instructions.
 2. Verify the package using Python 3.12:
-   uvx --python 3.12 goals-iterm-mcp@0.2.1 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.2 --help
 3. Back up the client's existing MCP configuration. Add or update one local stdio
    server named iterm, preserving all unrelated settings and avoiding duplicates:
    command: the absolute path to uvx
-   args: ["--python", "3.12", "goals-iterm-mcp@0.2.1", "serve"]
+   args: ["--python", "3.12", "goals-iterm-mcp@0.2.2", "serve"]
    Use the target client's supported configuration format and location.
 4. Guide me through enabling the iTerm2 Python API and approving its dialog if needed.
    Reload MCP using the supported mechanism; explain any required manual restart.
@@ -71,8 +71,9 @@ Repository: https://github.com/lucky-goals/goals-iterm-skill
    the connection check. During installation, do not read terminal contents, send
    input, create windows, or launch coding tasks.
 7. Report the installation path, skill discovery status, MCP readiness, and available
-   monitoring mode: host scheduling/wakeups or polling during an active agent run.
-   Do not claim background monitoring works without an actual wakeup mechanism.
+   monitoring capabilities. Delegated tasks default to inline monitoring; background
+   monitoring requires an explicit request and real host capability. Installation does
+   not start a monitor, and no checks after this run may be promised without a real handle.
 ```
 
 ## Update an existing installation
@@ -122,15 +123,15 @@ The repository root is a skill package. Install the whole directory under the na
 
 This skill does not install MCP or provide a standalone background service. Connect goals-iterm-mcp in the host client, enable the iTerm2 Python API, and prepare the target CLI and its authentication in the terminal. Required tools cover session listing, screen/history reading, and text/key input; creating terminals also requires the corresponding creation tools.
 
-Continuous monitoring requires host scheduling/wakeups or polling within an active agent run. Without background wakeups, monitoring cannot continue after the agent run ends. The skill requires the agent to report this limitation explicitly.
+Monitoring defaults to polling inline during the current execution. Use real, interruptible host sleeps: 10–15 seconds after dispatch, then 30–60 seconds between checks, with no sleep segment longer than 60 seconds. A single multi-session loop observes every due or runnable session, then waits once for the nearest next check. Do not start a background monitor by default. Continue monitoring after the current run only when the user explicitly requests it and the host provides a verified scheduler/wakeup handle; otherwise report that it cannot continue after the run ends.
 
 ### Session lifecycle and durable coordination state
 
 Follow the [session lifecycle guide](references/session-lifecycle.md) before starting or handing off CLI work. Before launching a new CLI process or session, inspect the cleanup and recovery capabilities actually available in the installed MCP. After the CLI starts, and before dispatching new work, verify conversation persistence and the current Session/Tab/Window identity. If transcript or history is disabled, fix it through a verified launch method supported by that CLI before sending new work; do not restart an already active session merely to change the setting. A CLI identity or recovery receipt alone is not proof that history is persisted or resumable. When recovery is unknown, record an explicit, actionable manual follow-up and never promise automatic closure.
 
-The coordinator keeps a durable local registry at `~/.local/state/goals-iterm-skill/session-registry.json`. Use the bundled standard-library helper `scripts/session_registry.py` for lock, revision, and generation guards. Registry entries are host observations, not MCP authority and not a lock on the real terminal. Only cross-task handoff/reuse invalidates stale completion state; a same-task handoff that changes the coordinator preserves recorded business and cleanup facts, including unknown outcomes, while generation guards still prevent stale writes. Renaming a CLI chat does not create a new identity. Once a per-session task is accepted, put it in `finalizing`: stop the business-writing monitor, but keep the cleanup coordinator running until each owned resource is actually `closed`, explicitly `retained`, or `blocked` with an actionable disposition. Keep any `unknown` cleanup result visible and reconcile it read-only before changing it. Child tasks may be accepted or reclaimed independently once no consumer needs them.
+The coordinator keeps a durable local registry at `~/.local/state/goals-iterm-skill/session-registry.json`. Use the bundled standard-library helper `scripts/session_registry.py` for lock, revision, and generation guards. Registry entries are host observations, not MCP authority and not a lock on the real terminal. The optional `monitor_mode` is `inline`, `background`, `none`, or `unknown` (legacy entries without it mean `unknown`). `schedule_status` is `scheduled` only when a real host handle exists; inline monitoring is normally unscheduled and records the coordinator's assertion, not guaranteed liveness. Cross-task handoff/reuse and session identity/topology changes invalidate stale completion state; a same-task handoff that changes only the coordinator preserves recorded business and cleanup facts, including unknown outcomes, while generation guards still prevent stale writes. Renaming a CLI chat does not create a new identity. Once a per-session task is accepted, put it in `finalizing`: stop the business-writing monitor, but continue authorized cleanup coordination inline with bounded read/sleep/rechecks until each owned resource is actually `closed`, explicitly `retained`, or `blocked` with an actionable disposition. Keep any `unknown` cleanup result visible and reconcile it read-only before changing it. Checks after the current run require an explicitly requested background monitor and a real host handle. Child tasks may be accepted or reclaimed independently once no consumer needs them.
 
-Cleanup rechecks are bounded and may be retried only when an actual scheduler and authorization exist. If a write result is unknown, reconcile it by read-only observation only. Do not default to `force` or a global sweep. Final responses must include resource-accounting totals and reasons, recovery evidence, and pending follow-ups.
+Cleanup rechecks are bounded and may run inline during finalization when authorized, even after the business monitor stops. Checks after the current run require an explicitly requested background monitor and a real host scheduler/wakeup handle. If a write result is unknown, reconcile it by read-only observation only. Do not default to `force` or a global sweep. Final responses must include resource-accounting totals and reasons, recovery evidence, and pending follow-ups.
 
 ## Explicit session cleanup
 
@@ -161,8 +162,9 @@ Keep business completion separate from the cleanup outcome. Write each session's
 
 ```text
 Use goals-iterm-skill to have Claude Code in iTerm fix the login issue in
-/path/to/project. Diagnose first, then fix it and run only relevant tests.
-Monitor after every instruction, make routine technical decisions, and recover
+/path/to/project. Diagnose first, then fix it and run only relevant tests. Route
+project changes through the CLI; keep root/native agents read-only for context and review.
+Monitor inline in the current run by default, make routine technical decisions, and recover
 from network failures only when the task has stopped and will not resume itself.
 After acceptance checks pass, stop the business-writing monitor and complete the
 authorized finalization until owned resources are closed, explicitly retained,
@@ -171,11 +173,11 @@ resource-accounting totals and reasons, recovery evidence, and pending follow-up
 Do not publish.
 ```
 
-You can also name an existing session to take over its task. The skill resolves the exact `session_id` first and avoids resubmitting work already in progress.
+You can also name an existing session to take over or continue its task. The skill resolves the exact `session_id` first and avoids resubmitting work already in progress.
 
 ## Advanced example: pursue a task to completion with a Goal
 
-For a multi-step task, use a Goal in the coordinating Codex chat when the host supports it. The CLI running inside iTerm does not need a separate Goal. A Goal tracks the overall objective; the skill guides coordination, and the monitor observes terminal output. A Goal does not replace a monitor or provide an independent background service. See the [official Goals guide](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
+Create a Goal only when the user explicitly requests one and the host supports it. The CLI running inside iTerm does not need a separate Goal. A Goal tracks the overall objective; the skill guides coordination, and inline monitoring observes terminal output. A Goal does not replace monitoring or provide an independent background service. See the [official Goals guide](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
 
 Replace the placeholders below and send this prompt to the coordinating Codex agent. For a host without Goals, omit the Goal creation and completion instructions while keeping the monitoring and acceptance requirements.
 
@@ -200,15 +202,29 @@ Execution requirements:
   CLI response and pending decision, your decision and its basis, actions and results,
   with timestamps, outer/CLI rounds, and linked event IDs. Announce its path at the
   start and include the ledger link in the final report.
-- Coordinate, monitor, make decisions, and verify results; have the target CLI
-  perform the development work.
+- Act as the root orchestrator. Route project writes, artifacts, tests, builds,
+  dependency/configuration/service changes, and Git mutations through the target
+  CLI over MCP. Read-only Git inspection is allowed. Use root/native agents for
+  read-only context, acceptance, and review; publish only with my explicit
+  authorization. For cleanup-only requests, follow the narrow lifecycle path without
+  starting a coding CLI or monitoring loop. For restore-only requests, start/resume
+  a CLI only as required by the lifecycle, without extra business work or a monitor loop.
 - Check the session first. If the task is already running, take over monitoring
   without dispatching it again.
-- After every task, follow-up, decision, or recovery instruction, create or update
-  the same monitor.
-- Use a monitoring mechanism actually available in the host. Without background
-  wakeups, keep polling during the active run and report the limitation honestly;
-  do not merely promise to check later.
+- Monitor inline in this run by default. Use real interruptible sleeps of 10–15s
+  after dispatch, then 30–60s between checks (never over 60s per segment). One loop
+  observes all due/runnable sessions, then waits once for the nearest check. Do not
+  start a background monitor by default.
+- Use a background monitor only if I explicitly request it and a real host
+  scheduler/wakeup handle is verified. If background monitoring is unavailable,
+  continue inline only when that still fits my request. If I ask you to return now,
+  save a checkpoint and hand off as unscheduled; do not promise future checks.
+  Context growth alone calls for checkpointing and normal continuation; an unavoidable
+  hard host limit may require a truthful handoff.
+- After acceptance, stop business monitoring but finish authorized cleanup inline
+  with bounded read/sleep/rechecks. Future after-run checks require my explicit
+  request and an actual scheduler handle; an inline unscheduled monitor is not a
+  liveness guarantee.
 - Make routine technical decisions using the context and project conventions,
   and advise the CLI so it can continue.
 - Observe while the CLI is working or retrying automatically; do not resend work.
@@ -237,7 +253,7 @@ Constraints:
 
 ## Task audit ledger
 
-Every delegated task now maintains a Markdown audit ledger as it runs. The coordinator records instructions, CLI feedback (including questions and options), decisions and their basis, delivery evidence, recovery, acceptance results, and monitor cleanup. Entries include timestamps with UTC offsets, outer conversation rounds, per-session CLI rounds, and linked event/decision IDs. The outer round is a task-local user-message counter, not an invented native chat ID.
+Every task delegated, taken over, or continued with this skill maintains a Markdown audit ledger as it runs. The coordinator records instructions, CLI feedback (including questions and options), decisions and their basis, delivery evidence, recovery, acceptance results, and monitor cleanup. Entries include timestamps with UTC offsets, outer conversation rounds, per-session CLI rounds, and linked event/decision IDs. The outer round is a task-local user-message counter, not an invented native chat ID.
 
 The coordinator announces the absolute ledger path at the start and links it in the final report. Specify a path if desired; otherwise it uses a private host state directory, falling back to `~/.local/state/goals-iterm-skill/audits/`. Ledgers are not automatically committed to your repository. Secrets are redacted; unchanged polls may be consolidated, but decisions and significant feedback remain recorded. This is an append-oriented operational record, not a tamper-proof log or a full terminal recording.
 
@@ -245,7 +261,7 @@ See the [audit protocol](references/audit.md) and [Markdown template](references
 
 ## Maintenance and validation
 
-The entry point is [SKILL.md](SKILL.md). See [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
+The entry point is [SKILL.md](SKILL.md). See [orchestrator.md](references/orchestrator.md) for the execution boundary, [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
 
 After changes, validate the skill frontmatter and relative links, then walk through the scenarios in the monitoring protocol. Real CLI checks should use a dedicated test session and cover dispatch, decisions, recovery, and monitor cleanup. Static validation does not establish that background scheduling or live CLI integration works.
 

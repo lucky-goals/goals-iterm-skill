@@ -20,7 +20,7 @@
 
 本机不同协调者使用同一个状态位置，默认 `~/.local/state/goals-iterm-skill/session-registry.json`。使用随技能提供的 `scripts/session_registry.py` 更新；通过 `--help` 查看实际参数。Python 标准库即可运行，不需安装服务。状态放在私有目录，不进入仓库或技能安装目录。
 
-登记至少包含准确 Session ID、owner_task_id、coordinator_id、generation、当前 revision、来源、保留策略和审计台账绝对路径。根据可见证据补充 `owned_container`（仅 tab_id/window_id/basis）和 cleanup_authorization、Tab/Window ID、session/broker epoch、进程实例、CLI/chat UUID、活动和恢复状态、验收依据、monitor 状态、回收原因及后续待办。不把昵称、目录、PID 单独用作身份。
+登记至少包含准确 Session ID、owner_task_id、coordinator_id、generation、当前 revision、来源、保留策略和审计台账绝对路径。常规工作默认由当前协调者在本轮内联复查，记录 `monitor_mode=inline`；只有用户明确授权且宿主确有调度能力时才用 `background`。`none` 表示明确没有监控，旧记录缺少该字段时按 `unknown` 处理。`monitor_mode` 说明复查计划在哪里进行，不代表 monitor 当前存活；`monitor_status` 是独立的状态断言。根据可见证据补充 `owned_container`（仅 tab_id/window_id/basis）和 cleanup_authorization、Tab/Window ID、session/broker epoch、进程实例、CLI/chat UUID、活动和恢复状态、验收依据、monitor 状态、回收原因及后续待办。不把昵称、目录、PID 单独用作身份。
 
 - 创建成功立即 register；登记失败时不继续派发新工作。遗留会话只有来源证据时才填 created/adopted，否则记 unknown 并保留。
 - 每次投递结果、验收、复用、移动 Tab、更换 CLI、关闭预演和实际结果都同步登记，并按 [审计协议](audit.md) 追加事件。
@@ -41,10 +41,12 @@ python3 /absolute/path/to/skill/scripts/session_registry.py report --task-id tas
 最小 register 文件结构如下；这里只展示格式，不代表任何真实授权或目标：
 
 ```json
-{"session_id":"S1","owner_task_id":"task-1","coordinator_id":"C1","origin":"created","cleanup_policy":"auto_owned","audit_path":"/private/path/task-1.md"}
+{"session_id":"S1","owner_task_id":"task-1","coordinator_id":"C1","origin":"created","cleanup_policy":"auto_owned","audit_path":"/private/path/task-1.md","monitor_mode":"inline"}
 ```
 
-generation 标识身份/交接代次，普通派发、观察和 finalizing 通过 update 增加 revision，不为停止 monitor 而 handoff 或重置业务。旧回调核对这两个版本及当前阶段，finalizing 禁止业务写入。closing/unknown 必须先只读核实并记录结果，才能切换任务或身份。更新使用返回的新 revision/generation，不机械沿用示例数字。身份/拓扑更新会重置旧完成与恢复资格；另一次现场核验后才更新完成状态。跨任务交接默认恢复为 borrowed/retain，并清除旧授权依据；新任务如已有明确回收授权，另一次带版本校验的 update 必须同时提交 `cleanup_policy=auto_owned` 和非空 `cleanup_authorization`（描述已有授权来源，登记本身不授予权限）。同任务换协调者保留旧 schedule_handle/next_check_at 供接管核实或停用，monitor 标 unknown；保留句柄不是证明它仍在运行。时间字段使用 UTC ISO 8601；仅写 next_check_at 不等于已调度，需要实际 schedule_handle。`report --require-settled` 对未收尾资源或零匹配均返回非零，不能将空报表当成成功。
+registry schema 仍为 v1；旧 v1 记录缺少 `monitor_mode` 时读取为 `unknown`，不抹除或重置已有字段。同任务 handoff 将 mode 置为 `unknown` 并保留旧的真实 `schedule_handle`/`next_check_at` 供新协调者核实或停用；跨任务 handoff 和身份代次变化会使旧 mode 失效。旧版已安装的 registry 脚本会拒绝新字段；开始写入 `monitor_mode` 前先升级协调者使用的脚本。
+
+generation 标识身份/交接代次，普通派发、观察和 finalizing 通过 update 增加 revision，不为停止 monitor 而 handoff 或重置业务。旧回调核对这两个版本及当前阶段，finalizing 禁止业务写入。closing/unknown 必须先只读核实并记录结果，才能切换任务或身份。更新使用返回的新 revision/generation，不机械沿用示例数字。身份/拓扑更新会重置旧完成与恢复资格；另一次现场核验后才更新完成状态。跨任务交接默认恢复为 borrowed/retain，并清除旧授权依据；新任务如已有明确回收授权，另一次带版本校验的 update 必须同时提交 `cleanup_policy=auto_owned` 和非空 `cleanup_authorization`（描述已有授权来源，登记本身不授予权限）。同任务换协调者将 monitor status/mode 标为 unknown，并保留旧 schedule_handle/next_check_at 供接管核实或停用；保留句柄不是证明它仍在运行。时间字段使用 UTC ISO 8601；仅写 next_check_at 不等于已调度，需要实际 schedule_handle。`report` 展示 `monitor_mode` 与 `schedule_status`：inline 不会伪装成 scheduled；只有真实非空 schedule_handle 才使 `schedule_status=scheduled`。`report --require-settled` 对未收尾资源或零匹配均返回非零，不能将空报表当成成功。
 
 登记工具不会联系 iTerm、发送按键、退出 CLI 或创建后台任务，也无法阻止未参与协议的用户/客户端操作。调用终端写工具前仍须核对现场及最新登记；记录中的状态不是终端锁或授权证明。
 
@@ -53,7 +55,7 @@ generation 标识身份/交接代次，普通派发、观察和 finalizing 通�
 逐会话记录 `execution_status`、`coordinator_phase`、`cleanup_status`，不能用一个 completed 掩盖资源残留。
 
 1. 子任务成果已被协调者接收、验收证据齐全且没有后续消费者需要该 CLI 上下文时，可以独立进入 finalizing，不必等待所有并行任务结束。尚需复用时保留并记录用途和复查条件。
-2. 将业务记 completed、协调阶段记 finalizing；停止该目标的业务写入 monitor 并核对成功。唯一收尾协调者继续负责 [自动回收](automatic-cleanup.md)，不能在此处结束整个协调流程。
+2. 将业务记 completed、协调阶段记 finalizing；停止该目标的业务写入 monitor 并核对成功。唯一收尾协调者继续负责 [自动回收](automatic-cleanup.md)，不能在此处结束整个协调流程。停止业务 monitor 不会中断 `monitor_mode=inline` 的本轮 finalizer；finalizer 可按退避等待、只读检查并有界复查收尾条件。
 3. 明确用户保留或借用资源时记 retained，并写 retention_reason；需要限时保留时记录 retain_until。到期只是复核触发点，不是关闭授权。
 4. 对本任务可回收资源刷新现场、预演、记意图、调用关闭，再逐项核实。实际关闭确证后才记 closed。保留对象仍须说明原因，不能把 blocked 改写成 retained 来隐藏失败。
 5. 汇报前运行登记工具 report（按任务筛选），核对所有登记资源及当前观察。`--require-settled` 用于检查是否仍有未收尾记录；通过也只证明登记内容满足要求，不证明现场已关闭。
@@ -66,18 +68,18 @@ generation 标识身份/交接代次，普通派发、观察和 finalizing 通�
 
 | 情况 | 后续行动 |
 | --- | --- |
-| 已确认未产生副作用，且属于暂时条件 | 在既有授权内有限复查；记录下一次检查与真实调度句柄 |
+| 已确认未产生副作用，且属于暂时条件 | 当前轮内由 inline finalizer 按退避有界复查；如需本轮之后继续，记录下一次检查，并使用真实后台 schedule_handle |
 | UUID 缺失、只有启动身份、历史未保存、归属不明 | 记录需要补齐的证据或人工处理；条件没有变化时不反复调用关闭 |
 | 关闭响应丢失、执行中报错、状态 closing/unknown | 只读核对拓扑与准确回执，不自动重发，也不让旧 monitor 重建 CLI |
-| 无可用调度或当前执行即将结束 | 明确 unscheduled、剩余处理与责任方，不声称后台继续 |
+| 无可用调度或当前执行即将结束 | 当前轮内 inline finalizer 仍可睡眠后只读检查并有界复查；若需要本轮结束后继续，必须有用户授权、宿主能力和真实后台 schedule_handle，否则明确 unscheduled、下一动作与责任方 |
 
-同一未变化阻碍默认最多复查两次，遵守更长服务退避；不能用重试覆盖第一次未知结果。复查只观察/收尾，不恢复业务写入 monitor，不扩大到新 Session，不升级 force。未来调度须符合宿主能力与用户授权，记录真实创建结果；不要仅保存时间字段就宣称已安排。
+对同一未变化的收尾阻碍，默认最多复查两次并遵守更长服务退避；两次后仍未变化就停止重复尝试，记录阻碍、下一动作与责任方，不能用持续轮询掩盖未知结果或第一次未确认的副作用。此上限只约束重复的收尾尝试，不限制健康运行期间按业务需要进行的常规观察。复查只观察/收尾，不恢复业务写入 monitor，不扩大到新 Session，不升级 force。需要本轮之后继续复查时，未来调度须符合宿主能力与用户授权，记录真实创建结果；不要仅保存 `monitor_mode=background` 或时间字段就宣称已安排。
 
 ## 最终资源账单
 
 最终回答除业务结果外列出：本任务登记/本次观察资源数、已关闭、明确保留、回收受阻、结果未知；分别说明原因、已停止或仍存活的 CLI/monitor、恢复回执与台账链接、下一步和是否确有调度。未经读取不能估计内存收益。多会话每项可用 Tab ID 与昵称便于识别，真实绑定保留准确 ID。
 
-结束协调前，所有资源都必须有明确去向。有真实阻碍时可以向用户交接并结束本轮，但任务记录保留 finalizing/blocked 或 unknown，不宣称全部完成，也不把未执行的后续动作写成已调度。
+结束协调前，所有资源都必须有明确去向。有真实阻碍时可以向用户交接并结束本轮；业务已验收而回收仍受阻时保留 finalizing 和 cleanup blocked/unknown，业务验收前的阻碍保留真实执行阶段。不要宣称全部完成，也不把未执行的后续动作写成已调度。
 
 ## 设计取舍
 
