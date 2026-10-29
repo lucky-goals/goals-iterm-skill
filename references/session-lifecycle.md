@@ -23,6 +23,7 @@
 登记至少包含准确 Session ID、owner_task_id、coordinator_id、generation、当前 revision、来源、保留策略和审计台账绝对路径。常规工作默认由当前协调者在本轮内联复查，记录 `monitor_mode=inline`；只有用户明确授权且宿主确有调度能力时才用 `background`。`none` 表示明确没有监控，旧记录缺少该字段时按 `unknown` 处理。`monitor_mode` 说明复查计划在哪里进行，不代表 monitor 当前存活；`monitor_status` 是独立的状态断言。根据可见证据补充 `owned_container`（仅 tab_id/window_id/basis）和 cleanup_authorization、Tab/Window ID、session/broker epoch、进程实例、CLI/chat UUID、活动和恢复状态、验收依据、monitor 状态、回收原因及后续待办。不把昵称、目录、PID 单独用作身份。
 
 - 创建成功立即 register；登记失败时不继续派发新工作。遗留会话只有来源证据时才填 created/adopted，否则记 unknown 并保留。
+- 新台账的 `audit_path` 指向任务的稳定索引文件（默认 `audits/<task-id>/index.md`），每日事件文件由索引和宿主检查点定位；跨日不改 generation，也不必每天更新 `audit_path`。旧单文件台账按 [审计协议](audit.md#按处理日期拆分与跨日续接) 续接，通过正常 update 改为索引路径，无需变更登记 schema。
 - 每次投递结果、验收、复用、移动 Tab、更换 CLI、关闭预演和实际结果都同步登记，并按 [审计协议](audit.md) 追加事件。
 - 更新携带 coordinator_id、generation 和 expected_revision。文件锁保护登记写入，版本冲突时重新读取、核对现场，不把旧 patch 强行重放。
 - 同任务换协调者时 handoff 保留业务及回收结果，尤其保留 closing/unknown，不能借交接重置未知副作用。将同一终端交给新任务时执行明确 handoff，递增 generation，清除旧验收与关闭资格；新任务关联自己的台账。改名不会创建新任务，旧会话的完成消息不能关闭新任务。

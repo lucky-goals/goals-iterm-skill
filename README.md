@@ -261,6 +261,8 @@ Every task delegated, taken over, or continued with this skill maintains a Markd
 
 The coordinator announces the absolute ledger path at the start and links it in the final report. Specify a path if desired; otherwise it uses a private host state directory, falling back to `~/.local/state/goals-iterm-skill/audits/`. Ledgers are not automatically committed to your repository. Secrets are redacted; unchanged polls may be consolidated, but decisions and significant feedback remain recorded. This is an append-oriented operational record, not a tamper-proof log or a full terminal recording.
 
+Ledgers are split by **processing date** in the task's recorded timezone: each task defaults to `audits/<task-id>/index.md` and `audits/<task-id>/YYYY-MM-DD.md`. The index links daily files; event and round numbers continue across dates. Late entries go into the current processing date with the original time noted. Existing single-file records remain intact and are linked when work resumes. Daily splitting does not delete history, so total storage still grows.
+
 See the [audit protocol](references/audit.md) and [Markdown template](references/audit-template.md), currently in Simplified Chinese. A planned action is recorded before sending, and its actual delivery result is appended afterward. If recording fails, the agent reports the gap and pauses new automatic work instructions rather than silently continuing without an audit trail.
 
 ## Maintenance and validation

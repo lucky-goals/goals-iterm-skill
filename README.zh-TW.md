@@ -210,6 +210,8 @@ Skill 版本: [v0.2.4](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 協調者在開始時告知台帳絕對路徑，結束時附上連結。可指定儲存路徑；預設使用宿主私有狀態目錄，沒有此目錄時使用 `~/.local/state/goals-iterm-skill/audits/`，不會自動提交至專案儲存庫。敏感內容先遮蔽，無變化輪詢可以合併，但關鍵回應與決策必須保留。這是以附加為主的操作記錄，不是防竄改日誌或完整終端錄製。
 
+台帳按任務時區的**處理日期**拆分：預設每個任務儲存為 `audits/<task-id>/index.md` 和 `audits/<task-id>/YYYY-MM-DD.md`。索引連結各天檔案，跨日延續事件和輪次編號，補記寫入目前處理日並註明原時間。舊單檔記錄保留，續做時連結新日期檔案；按日拆分不會自動刪除歷史，目錄總量仍會累積。
+
 詳見 [審計協定](references/audit.md) 與 [Markdown 範本](references/audit-template.md)，目前以簡體中文撰寫。傳送前記錄意圖，傳送後附加實際結果。寫入台帳失敗時會回報缺口並暫停新的自動工作指令，不能在沒有審計記錄的情況下默默繼續。
 
 ## 維護與驗證
