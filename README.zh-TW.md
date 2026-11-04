@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.0](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.0)
+Skill 版本: [v0.3.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.1)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -108,7 +108,7 @@ Skill 版本: [v0.3.0](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ### 工作階段生命週期與持久協調狀態
 
-開始新的 CLI 工作或交接任務前，請遵循[工作階段生命週期指南](references/session-lifecycle.md)。啟動新的 CLI 程序或工作階段前，先檢查已安裝 MCP 實際提供的清理與恢復能力。CLI 啟動後、派發新工作前，核對對話持久化狀態以及目前的 Session/Tab/Window 身分。若 transcript 或歷史記錄已停用，必須先透過該 CLI 支援且已驗證的啟動方式修復，再傳送新工作；不要為了修改設定而重啟已經活躍的工作階段。CLI 身分或恢復回執本身不代表歷史已持久化或可恢復。恢復狀態未知時，要記錄明確且可執行的人工後續步驟，絕不承諾自動關閉。
+開始新的 CLI 工作或交接任務前，請遵循[工作階段生命週期指南](references/session-lifecycle.md)。啟動新的 CLI 程序或工作階段前，先檢查已安裝 MCP 實際提供的清理與恢復能力。CLI 啟動後、派發新工作前，核對對話持久化狀態以及目前的 Session/Tab/Window 身分。若 transcript 或歷史記錄已停用，必須先透過該 CLI 支援且已驗證的啟動方式修復，再傳送新工作；不要為了修改設定而重啟已經活躍的工作階段。CLI 身分或恢復回執本身不代表歷史已持久化或可恢復。恢復狀態未知時記錄限制，獨立核對正常退出條件，不直接判定必須人工回收。
 
 協調者在 `~/.local/state/goals-iterm-skill/session-registry.json` 維護持久化本機註冊表。使用隨包提供的標準函式庫輔助腳本 `scripts/session_registry.py` 實作鎖、revision 與 generation 防護。註冊表記錄的是宿主觀察結果，不是 MCP 的權威，也不是對真實終端的鎖。選用欄位 `monitor_mode` 的值為 `inline`、`background`、`none` 或 `unknown`；舊紀錄缺少此欄位時視為 `unknown`。只有存在真正的宿主控制代碼時，`schedule_status` 才能為 `scheduled`；inline 未排程是常態，記錄的是協調者聲明，並不保證持續存活。跨任務 handoff/重用或工作階段身分/拓撲變更都會使舊的完成狀態失效；同一任務僅更換協調者時，保留已記錄的業務與清理事實（包括 unknown 結果），同時由 generation 防護阻止過期寫入。重新命名 CLI 聊天不會產生新的身分。每個工作階段的任務驗收後，將其置為 `finalizing`：停止負責業務寫入的 monitor，但可在目前執行中透過有界的唯讀觀察、sleep 和複核，繼續執行已授權的清理，直到每個所屬資源實際為 `closed`、明確 `retained`，或 `blocked` 且有可執行的處置方案。任何 `unknown` 清理結果都要保持可見，並先透過唯讀觀察對帳後再改變。本次執行結束後的檢查需要使用者明確要求背景監控且存在真正的宿主控制代碼。子任務在沒有消費者需要後，可以獨立驗收或回收。
 
@@ -125,17 +125,17 @@ Skill 版本: [v0.3.0](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 前三個工具必須且只能提供一個定位參數。ID 必須精確匹配。暱稱會先去除前後空白並進行大小寫折疊，再精確匹配一個 Session；對分頁/視窗工具，它會選取該 Session 所在的容器，不會把暱稱直接當作 Tab。匹配有歧義時拒絕。預設情況下，`clean_all_sessions` 只關閉已確認閒置的工作階段，略過忙碌、等待、未知或其他無法確認安全的工作階段。它不會推斷工作階段「不需保留」或是否有用；負責協調的 agent 必須遵守使用者要求的保留策略與授權範圍。`force=true` 會嘗試初始授權範圍內的所有工作階段（包括忙碌的工作階段），但仍執行 ID、權限、目標變更與恢復安全檢查。一般關閉在預檢發現受影響的工作階段/分頁/視窗中有忙碌或未知工作階段時，會整體拒絕，除非已授權 force。
 
-任何中斷、CLI 退出或原生關閉之前，服務都必須先持久化私有恢復回執，其中記錄目標以及可取得的 CLI/chat UUID、cwd 與恢復中繼資料；初始回執寫入失敗會在終端寫入前停止操作；後續回執更新失敗時可能已有副作用，需核對逐工作階段結果。接著要求 CLI 正常退出，並僅在確認退出後關閉目標。`dry_run=true` 真正唯讀：不傳送終端輸入、不儲存恢復回執、不改名、不中斷、不關閉。
+在 MCP 關閉工具路徑中，中斷、CLI 退出或原生關閉之前，服務必須先持久化私有恢復回執，其中記錄目標以及可取得的 CLI/chat UUID、cwd 與恢復中繼資料；初始回執寫入失敗會在終端寫入前停止操作；後續回執更新失敗時可能已有副作用，需核對逐工作階段結果。接著透過有界 SIGINT/SIGTERM 請求 CLI 退出，並僅在確認退出後關閉目標。`dry_run=true` 真正唯讀：不傳送終端輸入、不儲存恢復回執、不改名、不中斷、不關閉。
 
 每個工作階段結果都使用公開欄位 `interruption`、`exit`、`closure_status` 與 `cli_sessions`；聊天記錄可能包含 `cli`、`chat_uuid`、`cwd`、身分來源、持久化狀態與恢復資料。有回執時，操作會回傳 `recovery_record_id` 與 `recovery_record_path`。CLI 歷史的 `persistence_status` 為空或未知本身不是阻礙。UUID 身分證據與恢復回執安全防護，和歷史是否實際持久化、能否恢復是不同層次；只有 ID 不保證可恢復。即使 MCP 回應的 `isError=true`，仍要讀取其中的 `status` 以及 `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` 陣列。
 
 ### 自動回收任務擁有的資源
 
-驗收條件已核實通過、監控已停止後，預設自動回收專為本任務建立的資源。關閉工具內部會先持久化恢復回執，再退出 CLI 或關閉終端。CLI 自稱「done」不等於驗收證據。既有的借用工作階段與視窗預設保留，除非明確將其採用到本任務並取得清理授權。使用者要求保持開啟時，優先保留該資源。
+驗收通過並停止業務 monitor 後，預設按[正常退出協定](references/natural-exit.md)回收任務專用資源：儲存已知恢復資料，提交一次已驗證的 CLI 退出命令，核實退出後再關閉剩餘 shell。僅缺聊天 UUID 不單獨阻止正常退出；使用者明確要求必須可恢復後才關閉時仍優先遵守。CLI 自稱完成不等於驗收通過；借用或使用者要求保留的資源仍按原授權保留。
 
 在建立或明確採用資源時，記錄來源、擁有該資源的任務，以及準確的 Session、Tab、Window ID。選擇最大且安全、互不重疊的任務擁有容器：只有當視窗目前所有後代都屬於本任務，且已完成並符合回收條件時，才使用任務獨占 Window；否則使用任務獨占 Tab；再否則只關閉各個任務擁有且符合條件的 Session。僅為空或看起來獨占，不能證明容器歸屬。保留未獲清理授權的借用父層，以及共享或未知窗格。allowlist 不完整、無法證明容器歸屬時，使用精確的 Session。
 
-自動回收先以 `dry_run=true` 預演，再複核成員，使用 `force=false` 呼叫 `close_window`、`close_tab` 或 `close_session`，絕不呼叫全域的 `clean_all_sessions`。預檢發現目標忙碌或未知、身分缺失或初始恢復回執錯誤時，保留資源並回報。開始執行後的錯誤可能已有副作用，應核實實際結果，不能宣稱終端必然保留；不要自動使用 force，也不要盲目重試。使用者明確授權 force 的流程仍按既有手動清理流程另行處理。
+正常退出後更新拓撲，對剩餘準確目標做 `dry_run=true` 預演，通過後用 `force=false` 關閉；本任務回收不呼叫全域 `clean_all_sessions`。實際忙碌、歸屬/程序不明、身分衝突、權限限制、初始回執失敗與寫入結果未知仍須保留核實。僅介面缺少活動資訊時按正常退出協定補齊獨立證據，不自動 force。退出投遞未知不重送；CLI 退出、終端消失、聊天恢復能力分別驗證，後續 shell 關閉回執不能證明原對話可恢復。
 
 將業務任務完成與清理結果分開記錄。稽核記錄應寫入每個工作階段的 CLI/chat UUID、cwd、恢復中繼資料、恢復回執與清理結果。暫停、失敗或取消的任務不自動回收。現有監控與稽核流程仍然適用，實際安裝工具的 schema 仍是執行時依據。借用資源、全域清理與 force 清理仍需明確授權；重用既有授權，不要重複詢問。`clean_all_sessions` 可能影響無關任務，因此只有在已授權範圍與伺服器範圍一致時才呼叫（包括已設定的 allowlist）。詳細流程請參閱[自動回收與恢復指南](references/automatic-cleanup.md)與[關閉與恢復指南](references/closing-and-recovery.md)。
 

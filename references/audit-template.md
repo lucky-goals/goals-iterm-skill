@@ -73,6 +73,7 @@
 
 - **回收依据与层级**：<显式要求/验收后自动回收；验收证据、创建/授权来源、归属和保留策略、选择容器/Session 的依据>
 - **关闭范围与参数**：<原始 Session/Tab/Window ID、影响的分屏；force、dry_run、授权来源>
+- **退出路径与证据**：<正常退出/MCP 中断关闭/已自行退出；命令及版本依据、发送前工作结束证据、实际提交/确认、CLI 退出与终端关闭分别验证；恢复降级及用户恢复要求>
 - **CLI 恢复证据**：<CLI 类型、chat UUID 及来源、cwd、resume.executable/argv、CLI 历史 persistence_status；与 MCP 回执写入结果分列>
 - **逐会话结果**：<所属结果数组、interruption/exit/closure_status 及原因；预演用 would_close/would_skip，不当作实际关闭>
 - **恢复验证**：<仅识别 UUID/已持久化/已实际恢复；新 Session ID 与原 UUID 的关联及验证证据>

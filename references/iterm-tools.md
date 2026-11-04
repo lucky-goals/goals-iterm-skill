@@ -16,7 +16,7 @@
 
 ### 关闭工具（按能力启用）
 
-先发现实际 schema；以下是当前源码的公开接口。`OR` 表示只能传一个定位参数，不是参数名称。`force`、`dry_run` 只接受 JSON 布尔值 `true/false`，不能传字符串或 0/1。未用到的定位字段省略。缺少工具或安全能力时报告具体阻碍，不用 shell/AppleScript 或发送退出键绕过。
+先发现实际 schema；以下是当前源码的公开接口。`OR` 表示只能传一个定位参数，不是参数名称。`force`、`dry_run` 只接受 JSON 布尔值 `true/false`，不能传字符串或 0/1。未用到的定位字段省略。缺少关闭工具或安全能力时报告具体阻碍，不用 shell/AppleScript 绕过终端关闭。已确认停止工作的 CLI 可按 [正常退出](natural-exit.md) 经 MCP 输入工具正常退出；不将其用于规避权限、范围、实际忙碌或未知副作用保护。
 
 | 工具 | 参数 | 范围与默认行为 |
 | --- | --- | --- |
@@ -54,7 +54,7 @@
 
 `isError` 在 `refused/unknown` 或存在 failed/unknown 项时为真；仅跳过不是错误。预演的候选为空、甚至 `isError=false` 时也要查 `would_skip_sessions`。`dry_run=true` 不发送输入、不保存回执、不改名、不关闭；实际执行重新采样，不复用预演计划。
 
-常见关闭错误：`INVALID_SELECTOR/AMBIGUOUS_SELECTOR/SELECTOR_NOT_FOUND` 要重新核对准确目标；`ACTIVITY_BLOCKED` 不自动升级 force；`OUT_OF_SCOPE/SELF_PROTECTION` 不绕过；`CLI_IDENTITY_MISSING/CLI_IDENTITY_AMBIGUOUS/CLI_IDENTITY_STARTUP_ONLY`（最后一种只有启动 UUID，缺当前对话证据）、进程身份相关错误需保留目标并报告证据不足；`RECOVERY_PERSISTENCE_FAILED` 若发生在初始回执/首条执行日志阶段会阻止退出；若发生在退出或关闭后的日志更新阶段，可能已有副作用，须结合结果数组及实际拓扑核对。`TARGET_CHANGED`、退出/关闭失败、`TIMEOUT/CANCELLED` 等按逐会话结果只读核实，不盲目重试。普通读写的 `SESSION_NOT_FOUND` 与关闭的 `SELECTOR_NOT_FOUND` 不同。
+常见关闭错误：`INVALID_SELECTOR/AMBIGUOUS_SELECTOR/SELECTOR_NOT_FOUND` 要重新核对准确目标；`ACTIVITY_BLOCKED` 不自动升级 force；`OUT_OF_SCOPE/SELF_PROTECTION` 不绕过；`CLI_IDENTITY_MISSING/CLI_IDENTITY_STARTUP_ONLY` 阻止 MCP 关闭，但仅缺聊天证据时可独立评估正常退出资格；`CLI_IDENTITY_AMBIGUOUS`、进程身份相关错误仍须保留并核实，不能以正常退出绕过；`RECOVERY_PERSISTENCE_FAILED` 若发生在初始回执/首条执行日志阶段会阻止退出；若发生在退出或关闭后的日志更新阶段，可能已有副作用，须结合结果数组及实际拓扑核对。`TARGET_CHANGED`、退出/关闭失败、`TIMEOUT/CANCELLED` 等按逐会话结果只读核实，不盲目重试。普通读写的 `SESSION_NOT_FOUND` 与关闭的 `SELECTOR_NOT_FOUND` 不同。
 
 ## 调用示例（JSON 参数）
 
