@@ -11,7 +11,8 @@ labels: bug
 - Skill commit:
 - Host agent and version:
 - Target CLI and version:
-- goals-iterm-mcp version:
+- goals-iterm-skill/runtime revision:
+- configured policy scope (redacted as needed):
 - Monitoring mode (host scheduling or active-run polling):
 
 ## Minimal reproduction

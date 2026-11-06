@@ -1,0 +1,141 @@
+#!/bin/bash
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+RUNTIME_DIR="$REPO_ROOT/runtime"
+
+if [ -n "${XDG_STATE_HOME:-}" ]; then
+  case "$XDG_STATE_HOME" in
+    /*) STATE_HOME="$XDG_STATE_HOME" ;;
+    *) echo "itermctl: XDG_STATE_HOME must be an absolute path" >&2; exit 78 ;;
+  esac
+else
+  STATE_HOME="${HOME:?HOME is not set}/.local/state"
+fi
+if [ -n "${XDG_DATA_HOME:-}" ]; then
+  case "$XDG_DATA_HOME" in
+    /*) DATA_HOME="$XDG_DATA_HOME" ;;
+    *) echo "itermctl: XDG_DATA_HOME must be an absolute path" >&2; exit 78 ;;
+  esac
+else
+  DATA_HOME="${HOME:?HOME is not set}/.local/share"
+fi
+MANIFEST="$STATE_HOME/goals-iterm-skill/runtime.json"
+LOCK_FILE="$RUNTIME_DIR/requirements.lock"
+if [ ! -f "$LOCK_FILE" ]; then
+  echo "itermctl: runtime dependency lock is missing from this checkout" >&2
+  exit 78
+fi
+
+if command -v shasum >/dev/null 2>&1; then
+  LOCK_SHA256="$(shasum -a 256 "$LOCK_FILE" | awk '{print $1}')"
+elif command -v sha256sum >/dev/null 2>&1; then
+  LOCK_SHA256="$(sha256sum "$LOCK_FILE" | awk '{print $1}')"
+else
+  echo "itermctl: cannot verify runtime lock hash (shasum/sha256sum not found)" >&2
+  exit 78
+fi
+
+HOST_PYTHON=""
+for candidate in python3 python3.12 python; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    resolved="$(command -v "$candidate")"
+    if "$resolved" -I -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' >/dev/null 2>&1; then
+      HOST_PYTHON="$resolved"
+      break
+    fi
+  fi
+done
+if [ -z "$HOST_PYTHON" ] && command -v uv >/dev/null 2>&1; then
+  HOST_PYTHON="$(uv python find 3.12 --no-python-downloads 2>/dev/null || true)"
+fi
+if [ -z "$HOST_PYTHON" ]; then
+  echo "itermctl: a host Python 3 is required to verify the runtime manifest; run bootstrap.sh --apply after installing Python 3 or uv" >&2
+  exit 78
+fi
+
+RUNTIME_VERSION="$("$HOST_PYTHON" -I - "$RUNTIME_DIR/pyproject.toml" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+section = None
+for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    match = re.fullmatch(r"\s*\[([^]]+)\]\s*", line)
+    if match:
+        section = match.group(1)
+        continue
+    if section == "project":
+        match = re.fullmatch(r'\s*version\s*=\s*"([^"]+)"\s*', line)
+        if match:
+            print(match.group(1))
+            break
+else:
+    raise SystemExit("runtime version is missing from pyproject.toml")
+PY
+)"
+
+PREPARED_PYTHON="$("$HOST_PYTHON" -I - "$MANIFEST" "$RUNTIME_VERSION" "$LOCK_SHA256" "$DATA_HOME" <<'PY'
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+expected_version, expected_lock, data_home = sys.argv[2:]
+try:
+    state_root = manifest_path.parent
+    state_details = state_root.lstat()
+    if state_root.is_symlink() or not state_root.is_dir() or stat.S_IMODE(state_details.st_mode) & 0o077:
+        raise SystemExit("itermctl: runtime state directory is not private; run scripts/bootstrap.sh --apply")
+    if hasattr(os, "getuid") and state_details.st_uid != os.getuid():
+        raise SystemExit("itermctl: runtime state directory is owned by another user")
+    manifest_details = manifest_path.lstat()
+    if stat.S_ISLNK(manifest_details.st_mode) or not stat.S_ISREG(manifest_details.st_mode):
+        raise SystemExit("itermctl: runtime manifest must be a regular file")
+    if stat.S_IMODE(manifest_details.st_mode) & 0o077:
+        raise SystemExit("itermctl: runtime manifest is not private; run scripts/bootstrap.sh --apply")
+    if hasattr(os, "getuid") and manifest_details.st_uid != os.getuid():
+        raise SystemExit("itermctl: runtime manifest is owned by another user")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit("itermctl: prepared runtime manifest is missing or invalid; run scripts/bootstrap.sh --apply")
+
+if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+    raise SystemExit("itermctl: unsupported runtime manifest; rerun scripts/bootstrap.sh --apply")
+if manifest.get("runtime_version") != expected_version or manifest.get("lock_sha256") != expected_lock:
+    raise SystemExit("itermctl: prepared runtime does not match this checkout; run scripts/bootstrap.sh --apply")
+
+environment = Path(str(manifest.get("environment_path", ""))).expanduser()
+python_path = Path(str(manifest.get("python_path", ""))).expanduser()
+expected_environment = Path(data_home) / "goals-iterm-skill" / "runtimes" / f"{expected_version}-{expected_lock[:16]}"
+expected_python = expected_environment / "bin/python"
+try:
+    runtime_root = expected_environment.parent
+    runtime_root_details = runtime_root.lstat()
+    if runtime_root.is_symlink() or not runtime_root.is_dir() or stat.S_IMODE(runtime_root_details.st_mode) & 0o077:
+        raise SystemExit("itermctl: runtime directory is not private; run scripts/bootstrap.sh --apply")
+    if hasattr(os, "getuid") and runtime_root_details.st_uid != os.getuid():
+        raise SystemExit("itermctl: runtime directory is owned by another user")
+    environment_details = expected_environment.lstat()
+    if expected_environment.is_symlink() or not expected_environment.is_dir():
+        raise SystemExit("itermctl: prepared environment must be a real directory")
+    if hasattr(os, "getuid") and environment_details.st_uid != os.getuid():
+        raise SystemExit("itermctl: prepared environment is owned by another user")
+    if environment.resolve() != expected_environment.resolve() or python_path.resolve() != expected_python.resolve():
+        raise SystemExit("itermctl: runtime manifest paths do not match the locked environment; rerun bootstrap.sh --apply")
+except OSError:
+    raise SystemExit("itermctl: runtime manifest paths are unavailable; rerun bootstrap.sh --apply")
+if not expected_python.is_file() or not os.access(expected_python, os.X_OK):
+    raise SystemExit("itermctl: prepared Python is missing; run scripts/bootstrap.sh --apply")
+print(expected_python)
+PY
+)" || exit $?
+
+export PYTHONPATH="$RUNTIME_DIR"
+export PYTHONNOUSERSITE=1
+export PYTHONDONTWRITEBYTECODE=1
+unset PYTHONHOME PYTHONUSERBASE PYTHONEXECUTABLE
+exec "$PREPARED_PYTHON" -P -m goals_iterm.cli "$@"

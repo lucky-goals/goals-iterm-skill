@@ -1,0 +1,442 @@
+{
+  "schema_version": 1,
+  "tested_at": "2026-11-06T10:47:26.713833+00:00",
+  "platform": {
+    "system": "Darwin",
+    "machine": "arm64"
+  },
+  "runtime_version": "0.4.0.dev0",
+  "live_operations_verified": [
+    "clean_all_sessions",
+    "close_session",
+    "close_tab",
+    "close_window",
+    "create_tab",
+    "create_window",
+    "inspect_sessions",
+    "list_sessions",
+    "read_history",
+    "read_screen",
+    "rename_session",
+    "send_keys",
+    "send_text"
+  ],
+  "operation_count": 13,
+  "disposable_sessions_created": 5,
+  "disposable_sessions_remaining": 0,
+  "preexisting_sessions_preserved": true,
+  "normal_shell_exit_verified": true,
+  "missing_prompt_close_refused": true,
+  "clean_all_scope": "allowlisted disposable session only",
+  "forced_interruption_used": false,
+  "results": [
+    {
+      "operation": "create_window",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "create_tab",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "clean_all_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "inspect_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "close_window",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "close_session",
+      "dry_run": true,
+      "status": "ok",
+      "code": "ACTIVITY_BLOCKED",
+      "side_effects": "none"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "close_session",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "create_window",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "read_screen",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "read_history",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "rename_session",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "inspect_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "create_tab",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "inspect_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "create_window",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "send_keys",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "send_text",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "close_tab",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "confirmed"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    },
+    {
+      "operation": "list_sessions",
+      "dry_run": false,
+      "status": "ok",
+      "code": "OK",
+      "side_effects": "none"
+    }
+  ],
+  "limitations": [
+    "Live iTerm restart was not performed because existing user terminals were open.",
+    "CLI-specific restoration adapters were regression-tested with fixtures; no live conversations were interrupted or restored.",
+    "Live checks cover macOS arm64; Intel was not tested."
+  ],
+  "targeted_test_suites": {
+    "core_backend_history_naming_service": 75,
+    "closing_process_recovery": 79,
+    "operation_store_policy": 17,
+    "runner": 12,
+    "contract_observations": 8,
+    "bounded_sdk_authentication": 2,
+    "bootstrap_doctor": 11,
+    "session_registry": 22
+  },
+  "archive_installation": {
+    "fresh_extracted_install": true,
+    "offline_cached_install": true,
+    "repeated_apply": true,
+    "check_ready": true,
+    "operation_count": 13,
+    "installed_distributions": [
+      "iterm2",
+      "protobuf",
+      "websockets"
+    ]
+  },
+  "targeted_test_total": 226,
+  "launcher_import_isolation_verified": true,
+  "process_diagnostics": "Bounded job identities and verified login-ancestor classification; missing identities remain unknown."
+}

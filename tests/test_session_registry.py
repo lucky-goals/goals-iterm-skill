@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -37,6 +39,30 @@ def _thread_update(path: str, barrier: threading.Barrier, result: list[tuple[str
 
 
 class SessionRegistryTests(unittest.TestCase):
+    def test_xdg_default_matches_runtime_ownership_checks(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            environment = dict(os.environ, XDG_STATE_HOME=temporary,
+                               PYTHONPATH=os.pathsep.join((str(root), str(root / "runtime"))))
+            code = """
+import json
+from scripts import session_registry as registry
+from goals_iterm.policy import check_task_context, TaskContextError
+record = json.loads(__import__('sys').argv[1])
+registry.register_record(record)
+try:
+    check_task_context(None, [record['session_id']])
+except TaskContextError as error:
+    assert error.code == 'TASK_CONTEXT_REQUIRED'
+else:
+    raise AssertionError('runner missed registered Session in XDG state')
+check_task_context({'task_id':'T1','coordinator_id':'C1','generation':1,'expected_revision':1}, ['S1'])
+"""
+            completed = subprocess.run([sys.executable, "-c", code, json.dumps(_record())],
+                                       env=environment, capture_output=True, text=True, timeout=10)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertTrue((Path(temporary) / "goals-iterm-skill" / "session-registry.json").is_file())
+
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.state = Path(self.tempdir.name) / "nested" / "registry.json"

@@ -1,16 +1,16 @@
 # Session registry, startup checks, and finalization responsibility
 
-Read this protocol when creating, taking over, reusing, or completing sessions. MCP still performs terminal operations. Registry files describe host-observed facts; they do not authorize closure or replace MCP's live preflight.
+Read this protocol when creating, taking over, reusing, or completing sessions. The bundled runner performs terminal operations. Registry files describe host-observed facts; they do not authorize closure or replace a fresh runner preflight.
 
 ## Check recovery and finalization capabilities first
 
-Before creation, check closing/diagnostic tools, current client permissions, and actual monitoring capabilities. Record observed MCP/CLI/Skill versions. Prefer the installed service's read-only `inspect_sessions` diagnostics (see [tool conventions](iterm-tools.md)); if unavailable, use a closing dry run with `dry_run=true, force=false` on the exact Session. Never use global cleanup as a task probe or invent preflight results for an uncreated target.
+Before creation, read the [runner contract](runtime.md), inspect `capabilities --json` and `doctor --json`, and confirm the installed fixed policy and actual host monitoring capabilities. Record observed runtime/CLI/Skill versions. Prefer the runner's read-only `inspect_sessions` diagnostics; if unavailable, use a closing dry run with `dry_run=true, force=false` on the exact Session. Never use global cleanup as a task probe or invent preflight results for an uncreated target.
 
 After a new CLI starts and before dispatching work, check:
 
 - Whether launch settings permit conversation history persistence. If the interface explicitly says transcript saving is off, fix the new launch using that CLI's local help before dispatching. Do not indiscriminately delete environment variables or use unverified flags. Keep existing active sessions running, record limitations, and wait for an appropriate handoff point.
 - Whether current conversation UUID evidence is bound to the actual process instance. Distinguish current evidence, startup-only arguments, and unknown. An empty new conversation may have no UUID before its first response; record unknown and recheck after a real response. Do not invent work or probe a busy CLI just to obtain one.
-- Whether MCP can establish activity, persist a recovery receipt, and exit safely. A live process, running shell command, CLI awaiting input, and business acceptance are four different facts.
+- Whether the runtime can establish activity, persist a recovery receipt, and verify exit safely. A live process, running shell command, CLI awaiting input, and business acceptance are four different facts.
 
 Also verify the normal-exit command supported by this CLI version. Record insufficient recovery evidence as `recovery_status=degraded/unknown` with a reason, separating chat recovery from resource cleanup. Evaluate [normal exit](natural-exit.md); missing UUID alone does not justify promising manual cleanup or declaring cleanup impossible. Unknown capability does not automatically cancel authorized work, but explicitly disabled history saving is not a valid default for new work. Address known blockers early rather than discovering all of them at exit.
 
@@ -49,7 +49,7 @@ Registry schema remains v1. Legacy v1 entries without `monitor_mode` read as `un
 
 Generation identifies an identity/handoff epoch. Ordinary dispatch, observations, and finalizing updates increase revision, not generation; do not hand off merely to stop monitoring. Old callbacks check both values and cannot dispatch business work during finalizing. Reconcile closing/unknown read-only and record the result before changing tasks or identity. Use returned revision/generation values, not mechanically reused examples. Identity/topology updates invalidate old completion/recovery eligibility; observe the live state again before restoring completed status. Cross-task handoff resets ownership to borrowed/retain and clears old authorization. If the new task already has explicit cleanup permission, a separate version-checked update must set both `cleanup_policy=auto_owned` and nonempty `cleanup_authorization` identifying its source; registry entries do not grant permission. Same-task handoff resets monitor status/mode to unknown and retains old schedule_handle/next_check_at for verification or disabling; a retained handle does not prove liveness. Time fields use UTC ISO 8601. A next_check_at alone is not scheduling; a real schedule_handle is required. `report` shows `monitor_mode` and `schedule_status`; inline never masquerades as scheduled. Only a real nonempty handle yields `schedule_status=scheduled`. `report --require-settled` returns nonzero for unsettled resources or zero matches; an empty report is not success.
 
-The registry helper does not contact iTerm, send keys, exit CLIs, create background jobs, or prevent uncoordinated user/client input. Before terminal writes, still verify the latest registry and live state. Recorded state is neither a terminal lock nor authorization.
+The registry helper does not contact iTerm, send keys, exit CLIs, create background jobs, or prevent uncoordinated user/client input. Before terminal writes, still verify the latest registry and live state, and include the fresh `list_sessions.data.observation` for mutations on existing resources. Recorded state is neither a terminal lock nor authorization.
 
 ## Business completion still requires finalization
 
@@ -86,7 +86,7 @@ Every resource needs an explicit disposition before coordination ends. A real bl
 
 ## Design tradeoffs
 
-Markdown rules alone cannot detect an old coordinator overwriting a new task. A persistent cleanup daemon would add permissions and deployment burden. The lightweight registry therefore uses file locks and version checks, while Markdown retains human-readable process evidence and MCP protects actual operations. It targets a small number of concurrent local terminals. Use separate state directories across machines and explicit handoffs; local file locks are not distributed locks.
+Markdown rules alone cannot detect an old coordinator overwriting a new task. A persistent cleanup daemon would add permissions and deployment burden. The lightweight registry therefore uses file locks and version checks, while Markdown retains human-readable process evidence and the runner enforces its fixed local policy and fresh-operation checks. It targets a small number of concurrent local terminals. Use separate state directories across machines and explicit handoffs; local file locks are not distributed locks.
 
 ## Focused behavioral validation
 

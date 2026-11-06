@@ -20,7 +20,7 @@
 | Initial resource ownership and policy | <per-resource owner_task_id, original IDs, origin, owned_container, cleanup_policy, and basis; append bindings after creation> |
 | Authorization and constraints | <based on user instructions, without expanding permission> |
 | Acceptance criteria | <individually verifiable conditions> |
-| Registry and startup capabilities | <absolute registry path, coordinator_id/generation/revision; observed MCP/CLI/Skill versions, history persistence, identity/activity capabilities, degradation reasons> |
+| Registry and startup capabilities | <absolute registry path, coordinator_id/generation/revision; observed runtime/CLI/Skill versions, fixed policy scope, history persistence, identity/activity capabilities, degradation reasons> |
 | Initial monitor state | <not established/taken over; monitor_mode=inline/background/none/unknown and actual handle if available; no fabricated inline handle> |
 | Historical completeness | <recorded from task start/history before takeover incomplete> |
 | Absolute index path | <stable index.md path or user-specified index file> |
@@ -73,8 +73,8 @@ Add these for closing/restoration events as applicable; ordinary dispatch entrie
 
 - **Cleanup basis and level:** <explicit request/automatic post-acceptance cleanup; acceptance evidence, creation/authorization source, ownership/retention policy, and rationale for container/Session selection>
 - **Closing scope and parameters:** <original Session/Tab/Window IDs and affected panes; force, dry_run, authorization source>
-- **Exit path and evidence:** <normal exit/MCP interruption and closure/already exited; command and version basis, pre-send completion evidence, actual submission/confirmation, separate CLI exit and terminal closure verification; degraded recovery and user requirements>
-- **CLI recovery evidence:** <CLI type, chat UUID/source, cwd, resume.executable/argv, history persistence_status; separate from MCP receipt persistence>
+- **Exit path and evidence:** <normal exit/runner interruption and closure/already exited; command and version basis, pre-send completion evidence, request IDs, actual submission/confirmation, separate CLI exit and terminal closure verification; degraded recovery and user requirements>
+- **CLI recovery evidence:** <CLI type, chat UUID/source, cwd, resume.executable/argv, history persistence_status; separate from runner recovery-receipt persistence>
 - **Per-session results:** <result array, interruption/exit/closure_status and reasons; dry runs use would_close/would_skip, not actual closure>
 - **Restoration verification:** <UUID identified/persisted/actually restored; relationship between new Session ID and original UUID, with evidence>
 - **Retention and blockers:** <per-resource retention, borrowing, busy/unknown state, receipt/monitor issues; separate business completion and cleanup outcomes>

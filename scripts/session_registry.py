@@ -40,7 +40,7 @@ from typing import Any, Callable, Iterator, Mapping
 
 
 SCHEMA_VERSION = 1
-DEFAULT_STATE_PATH = Path.home() / ".local" / "state" / "goals-iterm-skill" / "session-registry.json"
+DEFAULT_STATE_PATH = Path(os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state")) / "goals-iterm-skill" / "session-registry.json"
 
 ORIGINS = frozenset({"created", "adopted", "borrowed", "unknown"})
 CLEANUP_POLICIES = frozenset({"auto_owned", "retain"})
@@ -171,6 +171,8 @@ def _absolute_path(value: os.PathLike[str] | str) -> Path:
 
 
 def _state_path(value: os.PathLike[str] | str | None) -> Path:
+    if value is None and not DEFAULT_STATE_PATH.is_absolute():
+        raise RegistryError("XDG_STATE_HOME must be an absolute path")
     return _absolute_path(DEFAULT_STATE_PATH if value is None else value)
 
 
