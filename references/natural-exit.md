@@ -1,70 +1,70 @@
-# 正常退出 CLI，再回收终端
+# Exit the CLI normally, then reclaim the terminal
 
-本流程是验收后自动收尾的首选路径，也适用于用户已授权关闭且已确认停止工作的 CLI。正常退出使用 CLI 自身支持的退出命令；中断运行中任务、发送信号或强制关闭属于另一条路径，按 [关闭与恢复](closing-and-recovery.md) 的 MCP 关闭契约执行。两者不能用 `force=false/true` 简单等同。
+This is the preferred finalization path after acceptance, and also applies when the user has authorized closure and the CLI has stopped working. Normal exit uses the CLI's own supported exit command. Interrupting running work, sending signals, and forced closure are separate operations governed by the MCP contract in [closing and recovery](closing-and-recovery.md). They do not map simply to `force=false/true`.
 
-## 退出前确认
+## Before exiting
 
-唯一 finalizer 同时核对以下条件，再记录退出意图：
+The sole finalizer verifies all of the following before recording exit intent:
 
-- 原始 Session ID、任务归属、当前 CLI 和回收授权仍有效；无用户保留要求、接管或不明共享成员。自动收尾须有业务验收证据，显式关闭须有对应授权。
-- 最新结果与连续观察表明 CLI 已结束当前工作并等待输入，没有自动重试、待执行工具、未完成子任务或仍需保留的后台作业；输入框没有用户草稿、菜单或确认问题。仅有 prompt、无新输出或 CLI 自称完成不够。
-- 已按生命周期协议进入 finalizing/closing、停止并核实业务写入 monitor，登记与台账可写。退出是 finalizer 的收尾动作，不是新一轮业务派发，不重启 monitor。
-- 已从该 CLI 当前版本的帮助、已验证的启动资料、用户提供的适用命令或界面说明确认正常退出方式。优先使用已确认支持的 `/quit` 或 `/exit`；只有快捷键得到确认时才使用对应键。不要假定所有 CLI 都支持同一命令，也不要为了重复验证已有可靠信息额外打开菜单。未知时先做必要的只读核实，不能把试错命令或自然语言“退出吧”发给模型。
+- The original Session ID, task ownership, current CLI, and cleanup authorization remain valid. There is no retention request, takeover, or unknown shared member. Automatic finalization requires acceptance evidence; explicit closure requires corresponding authorization.
+- Recent results and successive observations show that the CLI has finished its current work and is awaiting input, with no automatic retry, pending tools, unfinished subtasks, or background jobs that must be retained. The input contains no user draft, menu, or unresolved confirmation. A prompt, lack of output, or the CLI's own completion claim is not enough.
+- The lifecycle state is finalizing/closing, the business-writing monitor has been stopped and verified, and the registry and ledger are writable. Exit is a finalizer action, not a new business dispatch; do not restart the monitor.
+- The normal-exit method is confirmed by help for the current CLI version, verified launch information, an applicable command supplied by the user, or the interface itself. Prefer a confirmed `/quit` or `/exit`; use a shortcut only when verified. Do not assume every CLI supports the same command, or reopen menus merely to reconfirm reliable information. If unknown, perform necessary read-only checks first; do not send trial commands or natural-language requests such as “please exit” to the model.
 
-先记录已知 chat UUID、cwd、历史和恢复参数及来源，未知明确留空。**终端归属、进程连续性与聊天恢复身份分开判断**：只缺 chat UUID、只有启动 UUID，或历史恢复未证实，不单独阻止已满足上述条件的正常退出；记 `recovery_status=degraded/unknown`，报告恢复限制。用户明确要求必须可恢复后才关闭时，遵守该要求，先补齐其所需证据。
+First record known chat UUID, cwd, history, recovery parameters, and sources; leave unknown values explicitly empty. **Treat terminal ownership, process continuity, and conversation recovery identity separately.** A missing chat UUID, startup-only UUID, or unverified history recovery does not independently block normal exit when the conditions above hold. Record `recovery_status=degraded/unknown` and explain the limitation. If the user requires verified recoverability before closure, satisfy that requirement first.
 
-`inspect_sessions` 或关闭预演若仅因缺少当前聊天 UUID 返回 `CLI_IDENTITY_MISSING/CLI_IDENTITY_STARTUP_ONLY`，可按本流程独立核对正常退出条件，无须反复调用相同失败的关闭工具。若 busy/unknown 仅表示 shell 中 CLI 进程仍存活或适配器没有活动接口，记录该限制，结合上述实际工作结束证据判断；不改写 MCP 返回值、不声称其预检通过。若确有活动任务、进程绑定不明、身份冲突、范围/权限拒绝、`SELF_PROTECTION`、初始回执持久化失败或先前写入结果未知，则不能借正常退出绕过，保留并核实具体阻碍。
+If `inspect_sessions` or a closing dry run returns `CLI_IDENTITY_MISSING/CLI_IDENTITY_STARTUP_ONLY` solely because current chat identity is unavailable, independently evaluate normal exit under this protocol instead of repeating the same failed close call. If busy/unknown only reflects a live CLI process in the shell or a missing adapter activity interface, record that limitation and use the actual work-completion evidence above. Do not rewrite MCP results or claim its preflight passed. Real active work, unknown process binding, identity conflicts, scope/permission refusals, `SELF_PROTECTION`, initial receipt persistence failure, or an unresolved prior write outcome still block this path until investigated.
 
-## 一次退出、分别验证
+## Exit once; verify each outcome separately
 
-1. 在台账保存退出条件、命令依据、恢复限制和原始 ID；使用带版本校验的登记更新 `cleanup_status=closing`。发送前重新读取现场，发现用户输入、活动或身份变化立即停止。
-2. 通过 MCP `send_text` 发送已验证的单行退出命令（不含换行），核对输入后单独发送 `enter`。原生退出命令不需要决策文件或模型回复。只有投递明确成功才进入退出观察；响应丢失时只读核对，不重发、不补按 Enter。若 CLI 已退出，跳过发送。
-3. 使用真实宿主等待并读取结果，确认 CLI 退出。证据应包含正常退出反馈/返回 shell 的交互状态，以及可用的进程或 shell 集成信息确认原 CLI 已结束；看见一个类似 shell 的提示符或 API ack 均不足。若 Session 自动消失，核对原始 ID 和退出前证据，记录实际终端关闭，不再发送任何输入。
-4. CLI 已退出而 Session 仍在时，按下节“剩余 shell 的正常退出”核对并收尾；无需为了取得退出许可先故意触发一次 MCP 关闭失败。不满足 shell 正常退出条件时，按 [自动回收](automatic-cleanup.md) 选择准确目标并评估 MCP 关闭路径。父 Tab/Window 只在原授权与当前独占条件均满足时回收；不退出整个 iTerm 应用。
-5. 分别记录 CLI 退出、Session/Tab/Window 消失及恢复能力。退出后空的 `cli_sessions[]` 不是已保存原对话的证据；后续 shell 关闭回执也不能冒充退出前的聊天恢复回执。原 CLI 的已知恢复资料保留在台账，不能伪造 MCP 回执路径或 UUID。
+1. Record exit eligibility, command source, recovery limitations, and original IDs in the ledger. Set `cleanup_status=closing` through a version-checked registry update. Reread the terminal before sending; stop if user input, activity, or identity has changed.
+2. Use MCP `send_text` for the verified single-line exit command without a newline, check the input, then send `enter` separately. A native exit command needs neither a decision file nor a model response. Observe exit only after delivery is confirmed. If the response is lost, reconcile read-only; do not resend or add Enter. Skip sending if the CLI has already exited.
+3. Use a real host wait and read the result to confirm CLI exit. Evidence should include exit feedback or the returned shell interaction state, together with available process or shell-integration evidence that the original CLI ended. A shell-like prompt or API acknowledgment alone is insufficient. If the Session disappears automatically, verify the original ID and pre-exit evidence, record actual closure, and send nothing more.
+4. If the CLI has exited but the Session remains, use “Normal exit of the remaining shell” below. Do not deliberately trigger a failed MCP close just to obtain permission to exit. If shell normal-exit conditions are not met, select the exact target under [automatic cleanup](automatic-cleanup.md) and assess the MCP closing path. Reclaim a parent Tab/Window only when both the original authorization and current exclusive ownership allow it. Do not quit the entire iTerm application.
+5. Record CLI exit, Session/Tab/Window disappearance, and recoverability separately. Empty `cli_sessions[]` after exit is not evidence that the original conversation was saved. A later shell-closing receipt is not a pre-exit chat recovery receipt. Retain known recovery details for the original CLI in the ledger; never fabricate MCP receipt paths or UUIDs.
 
-退出后的 CLI→shell 是本次收尾的预期结果，证据记入台账；不把它当成新任务重新绑定、清除验收或重启 CLI。登记中的原 CLI/进程字段此时仅作历史引用，不能替代剩余 shell 的新鲜预检。若发现非预期进程替换或用户新工作，则停止收尾并按生命周期协议核实。
+The CLI-to-shell transition is expected during finalization; record it. Do not treat it as a new task, rebind it, clear acceptance, or restart the CLI. Original CLI/process fields in the registry now serve only as historical references, not fresh preflight evidence for the shell. Stop finalization and investigate unexpected process replacement or new user work under the lifecycle protocol.
 
-业务已验收、资源实际关闭、业务 monitor 已停止且没有其他待办时，可将协调阶段记 `settled`；保留真实的 `recovery_status=degraded/unknown` 并说明恢复限制，不为通过资源报表而改写为 ready。用户把可恢复性列为验收条件时，该条件未满足仍是待办。
+When work is accepted, resources are actually closed, the business monitor is stopped, and nothing remains, set the coordinator phase to `settled`. Preserve and explain the real `recovery_status=degraded/unknown`; do not change it to ready merely to pass a resource report. If recoverability is an acceptance criterion, an unmet recovery requirement remains outstanding.
 
-## 剩余 shell 的正常退出
+## Normal exit of the remaining shell
 
-本任务新建且默认可回收的 Session，或用户已明确授权回收的 Session，在满足以下条件时，可通过 MCP 输入工具发送 shell 内建命令 `exit` 正常结束。该动作沿用已有回收授权，不再要求用户分别批准“退出 CLI”“退出 shell”“关闭 Tab”。用户仅授权退出 CLI、要求保留终端时不适用。
+For a new task-owned Session subject to default cleanup, or a Session the user has explicitly authorized for cleanup, the finalizer may send the shell built-in `exit` through MCP input tools when the following conditions hold. This reuses existing cleanup authorization; do not request separate approvals for exiting the CLI, exiting the shell, and closing the Tab. It does not apply when the user authorized only CLI exit or asked to retain the terminal.
 
-- 仍是原始 Session，归属、代次和回收范围未变；CLI 的正常退出已验证，或本次专用 shell 尚未启动 CLI；当前是已知 shell 的可输入状态，输入行无草稿、无菜单或未决确认。
-- 业务已验收或已明确授权结束，业务 monitor 已停止；没有用户接管、新命令、活动/停止作业或需要保留的后台服务。提示符外观、无输出及 `active_job_count=1` 均不能单独证明这些条件。
-- 用新鲜的 shell 集成或进程/作业证据核对空闲。缺 prompt 不等于忙碌；busy 也可能来自基础进程误计数。若要将 MCP 的 busy/unknown 解释为探测限制，须能逐项说明观测到的进程：例如根 shell 与已核实父子关系的 `login` 祖先进程，而非仅凭进程名、计数或历史案例认定误报。若工具只给计数、无法排除真实作业，则保留并报告证据缺口。
-- 没有权限/范围拒绝、`SELF_PROTECTION`、身份冲突、初始回执持久化失败或尚未查明的写入副作用。正常退出不解除这些保护。MCP 关闭调用仍在进行时不得交叉发送输入。
+- It is still the original Session with unchanged ownership, generation, and cleanup scope. CLI exit has been verified, or this dedicated shell has not yet launched a CLI. The current interface is a known shell ready for input, without a draft, menu, or unresolved confirmation.
+- The work has been accepted or its termination explicitly authorized, and the business monitor is stopped. There is no user takeover, new command, active/stopped job, or background service to retain. Prompt appearance, no output, and `active_job_count=1` cannot establish these facts on their own.
+- Use fresh shell-integration or process/job evidence to establish idleness. A missing prompt does not mean busy; busy may also result from infrastructure processes being counted as jobs. To interpret MCP busy/unknown as a diagnostic limitation, account for each observed process, such as the root shell and a `login` ancestor whose parent-child relationship has been verified. Do not infer a false positive from a process name, count, or historical example alone. If tools expose only a count and real jobs cannot be ruled out, retain the resource and report the evidence gap.
+- There is no scope/permission refusal, `SELF_PROTECTION`, identity conflict, initial receipt persistence failure, or unexplained write side effect. Normal exit does not waive these protections. Never interleave input with an MCP close still in progress.
 
-操作顺序：
+Procedure:
 
-1. 保存退出意图、空闲证据、诊断限制和原始 ID，复核最新登记与现场。经 MCP `send_text` 发送不带换行的 `exit`，核对后单独 `enter`。**CLI 的 `/exit` 与 shell 的 `exit` 不同；不要向 zsh/bash 发送 `/exit`。** 不盲发 Ctrl-D，不追加信号。
-2. 每层正常退出只提交一次。若 shell 提示有 stopped/running jobs、未保存内容或退出钩子需要确认，停止自动输入并核对；不要再次 `exit` 强行确认。投递或退出结果未知时只读核实，不重发。
-3. 枚举核验原始 Session 和 Tab 的实际状态。iTerm 是否在 shell 结束后移除 Session/Tab 取决于配置；消失才记 closed。若 shell 已结束但终端仍保留，对准确剩余目标走 `dry_run=true, force=false` 的 MCP 关闭路径；拒绝则记录具体阻碍，不升级 force。
-4. 一个分屏退出不等于整个 Tab/Window 已回收。只报告实际消失的资源；不得为了关父容器影响借用窗口、其他分屏或被保留资源。
+1. Save exit intent, idleness evidence, diagnostic limitations, and original IDs; recheck the latest registry and terminal state. Use MCP `send_text` to send `exit` without a newline, verify it, then send `enter` separately. **CLI `/exit` and shell `exit` are different; do not send `/exit` to zsh/bash.** Do not blindly send Ctrl-D or follow with signals.
+2. Submit normal exit once per layer. If the shell warns of stopped/running jobs, unsaved content, or an exit hook requiring confirmation, stop automatic input and investigate. Do not send `exit` again to force confirmation. Reconcile uncertain delivery or exit read-only; do not resend.
+3. Enumerate to verify the original Session and Tab. Whether shell exit removes them depends on iTerm settings; mark closed only after disappearance. If the shell has ended but the terminal remains, use the MCP closing path on the exact remaining target with `dry_run=true, force=false`. Record a refusal as a blocker; do not escalate force.
+4. One pane exiting does not prove the whole Tab/Window was reclaimed. Report only resources that actually disappeared. Do not affect a borrowed Window, other panes, or retained resources merely to close a parent container.
 
-若此前 MCP 返回 `ACTIVITY_BLOCKED/ACTIVITY_UNKNOWN`，先按上述条件区分真实作业与探测限制，满足后可正常退出，不重复请求相同授权，也不伪称 MCP 预检通过。若此前返回 `INTERRUPT_UNVERIFIED` 或 partial，先只读核对回执、当前进程和拓扑，不能把 `interruption=not_attempted` 当作绝无信号副作用的证明；只有前次操作已结束、当前状态与剩余责任已核实后，才能重新评估正常退出资格。无法查明则保持 unknown/blocked。
+After `ACTIVITY_BLOCKED/ACTIVITY_UNKNOWN`, distinguish real jobs from diagnostic limitations under the conditions above. If eligible, exit normally without requesting the same authorization again or pretending MCP preflight passed. After `INTERRUPT_UNVERIFIED` or partial results, first reconcile the receipt, current processes, and topology read-only. `interruption=not_attempted` is not proof that no signal was sent. Reevaluate normal exit only after the previous operation has ended and current state and remaining responsibility are known. Otherwise preserve unknown/blocked.
 
-## 结果不确定时
+## When the outcome is uncertain
 
-正常退出命令最多提交一次。退出未确认时，按 [有界复查](session-lifecycle.md#有界复查与结果未知) 做只读核实，不追加 Ctrl-C/Ctrl-D、不杀进程、不自动升级 force。出现退出确认菜单时，只有选项明确、属于本次退出且不扩大授权时才确认；涉及丢弃未保存内容、仍在运行的任务或恢复要求时停止并核实。最终指出卡在命令不支持、退出未确认还是终端关闭被拒绝，不能只因 UUID 缺失就直接要求用户手动 `/exit`。
+Submit each normal-exit command at most once. If exit is unconfirmed, perform [bounded rechecks](session-lifecycle.md#bounded-rechecks-and-unknown-outcomes) read-only. Do not add Ctrl-C/Ctrl-D, kill processes, or escalate force. Confirm an exit dialog only when its choices are clear, belong to this exit, and do not expand authorization. Stop and investigate if it involves discarding unsaved content, running work, or recovery requirements. Explain whether the blocker is an unsupported command, unconfirmed exit, or refused terminal closure. Missing UUID alone is not a reason to ask the user to run `/exit` manually.
 
-## 定向行为验收
+## Focused behavioral validation
 
-| 现场证据 | 应有行动 |
+| Evidence | Expected action |
 | --- | --- |
-| 本任务已验收、CLI 停止工作、退出命令已核实，仅缺 chat UUID | 保存恢复限制，正常退出一次，验证后关闭剩余 shell |
-| 同样缺 UUID，但 CLI 正在执行工具或自动重试 | 不发送退出命令；等待或按已有显式中断授权处理 |
-| 用户明确要求对话可恢复后才关闭，当前无恢复证据 | 保留，补齐证据或交接，不按默认降级规则退出 |
-| 输入框有用户草稿、出现身份冲突或其他任务接管 | 停止写入，不清空草稿、不退出 |
-| 退出命令投递超时，当前屏幕不明 | 只读核对，不重发退出或 Enter，不恢复 CLI |
-| 正常退出后 Session 自动消失 | 核实原 ID 已消失并记录 closed，不再调用 close |
-| 正常退出后 shell 关闭预检通过 | 对准确剩余目标 force=false 关闭，分别报告退出与关闭 |
-| CLI 已退出，专用 shell 空闲且已有回收授权 | 通过 MCP 发送一次 `exit`，核验 Session/Tab 消失，不追加确认 |
-| 缺 prompt，busy 的唯一作业经新鲜进程证据确认是 shell 的 login 祖先 | 记录诊断限制；其他正常退出条件均满足时发送 shell `exit`，不自动 force |
-| active_job_count=1，但没有作业身份明细 | 不能假定是 shell/login；补证据，无法核实时保留 |
-| CLI 已退出，但 shell 存在后台服务或 stopped job | 保留并核对已有授权，不自动 exit 或重复确认退出 |
-| shell exit 后显示作业警告，或发送结果未知 | 停止追加输入，只读核实，不再次 exit / Ctrl-D |
-| shell 已结束，但 iTerm 保留已结束 Session | 精确目标预演后正常关闭；实际消失前不记 closed |
-| force 退出校验失败，当前状态尚未查明 | 只读核实副作用，不立即改发 exit |
-| 初始 MCP 回执失败或 SELF_PROTECTION | 保留并处理原阻碍，不改走正常退出规避 |
+| Accepted task, CLI stopped, verified exit command, only chat UUID missing | Save recovery limitations, exit once, verify, then reclaim the shell |
+| Same missing UUID, but CLI is running tools or automatically retrying | Do not send exit; wait or follow existing explicit interruption authorization |
+| User requires recoverability before closure, with no recovery evidence | Retain, obtain evidence, or hand off; do not use default degraded recovery |
+| User draft, identity conflict, or another task takes over | Stop writing; do not clear the draft or exit |
+| Exit delivery times out and the screen is unclear | Reconcile read-only; do not resend exit/Enter or restore the CLI |
+| Normal exit automatically removes the Session | Verify the original ID disappeared, record closed, and do not call close again |
+| Shell closing preflight passes after normal exit | Close the exact remainder with force=false; report exit and closure separately |
+| CLI exited, dedicated shell verified idle, cleanup already authorized | Send shell `exit` once through MCP and verify Session/Tab disappearance without another approval |
+| Prompt missing; fresh evidence identifies the sole counted job as the shell's login ancestor | Record the diagnostic limitation; send shell `exit` if all other conditions hold, without automatic force |
+| active_job_count=1 but no job identity details | Do not assume shell/login; obtain evidence or retain |
+| CLI exited but shell has a background service or stopped job | Retain and check existing authorization; do not automatically exit or repeat confirmation |
+| Shell exit warns about jobs, or delivery is unknown | Stop additional input and reconcile read-only; do not repeat exit/Ctrl-D |
+| Shell ended but iTerm retains the ended Session | Preflight and normally close the exact target; do not record closed before disappearance |
+| Forced exit verification failed and current state remains unclear | Reconcile side effects read-only; do not immediately send exit |
+| Initial MCP receipt failure or SELF_PROTECTION | Retain and address the original blocker; do not switch to normal exit to evade it |

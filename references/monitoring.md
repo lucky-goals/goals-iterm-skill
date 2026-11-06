@@ -1,142 +1,142 @@
-# 监控与 advisor 决策协议
+# Monitoring and advisor decision protocol
 
-## 选择真实可运行的 monitor
+## Choose a monitor that can actually run
 
-monitor 是“保存任务状态 + 定时读取终端 + 决策 + 必要时续派发”的闭环。单独启动 shell sleep、后台日志采集器或写一个计划文件不会唤醒 agent 做判断。
+A monitor is a loop of persisted task state, timed terminal reads, decisions, and dispatches when needed. A shell sleep, background log collector, or plan file alone does not wake an agent to make decisions.
 
-委托、接管和续跑任务默认使用当前执行中的 inline monitor。只有用户明确要求后台监控，并且宿主确有可恢复本任务上下文、访问同一台机器 iTerm MCP 的唤醒能力时，才建立 background monitor。调用前检查真实工具 schema/调度粒度；创建成功后核对并记录真实句柄。不要发明 `iterm.monitor`、因任务持续时间较长就擅自转后台，或假定任意 coding agent 都有自动任务工具；不要为本 Skill 安装守护进程或修改全局配置。
+Delegated, taken-over, and resumed tasks default to an inline monitor in the current execution. Create a background monitor only when the user explicitly requests it and the host has a real wakeup mechanism that can restore task context and reach the same machine's iTerm MCP. Check actual tool schemas and scheduling granularity before calling, then verify and record the returned handle. Do not invent `iterm.monitor`, switch to background merely because a task is long, or assume every coding agent has automation tools. Do not install daemons or change global configuration for this skill.
 
-请求了后台监控但宿主没有该能力时，不声称后台已安排，也不静默把后台要求改记为后台 monitor。只有前台继续仍符合用户要求时，才可明确说明并继续 inline 监控；若用户要求现在结束或返回，就保存检查点并如实标记 unscheduled/需交接，不强行维持前台循环。上下文增长本身不是停止理由：可通过检查点和宿主正常续轮继续时就继续。只有不可规避的宿主硬限制阻止继续、用户明确要求停止、必须等待用户授权/输入，或存在不可恢复阻碍时，才结束当前推进并如实交接。
+If requested background monitoring is unsupported, do not claim it is scheduled or silently record an unsupported monitor as background. Explicitly explain and continue inline only when that still fits the user's request. If the user asks to end or return now, save a checkpoint and honestly mark unscheduled/needs handoff instead of forcing a foreground loop. Context growth alone is not a stopping condition: continue using checkpoints and normal host continuation when possible. End active progress only for an unavoidable host limit, an explicit stop request, required user input/authorization, or an unrecoverable blocker, and hand off honestly.
 
-Inline 轮询用宿主的真实、可中断 sleep/wait 能力；不要在 iTerm 目标 shell 中运行 `sleep` 伪造宿主等待。初始间隔通常 10–15 秒，无实质变化后逐步放宽到 30–60 秒。每个实际等待段不超过 60 秒；更长间隔拆成可中断段，每段恢复控制后先读取状态、判断是否有动作，再决定后续等待。
+Use the host's real interruptible sleep/wait for inline polling. Do not run sleep in the target iTerm shell to simulate a host wait. Start around 10–15 seconds and gradually widen to 30–60 seconds without substantive change. Each actual wait segment is at most 60 seconds. Split longer intervals into interruptible segments; after each return, read state and decide whether action is needed before waiting again.
 
-登记 `monitor_mode=inline|background|none|unknown`。旧记录缺少该字段时按 `unknown` 处理；同任务协调者交接将模式设为 `unknown`，保留旧句柄供接管核验或停用；跨任务交接和身份代次变化会清除旧模式与句柄。发生这类重置前，先在台账/检查点保存原句柄并核实停用结果，不能因登记字段已清除就声称旧调度已停止。模式字段不证明任务仍在运行；`schedule_status` 只按登记约定反映是否存在真实、非空的调度句柄，不代表句柄仍存活。若要报告当前调度器状态，另行核对真实句柄并说明实际查询结果；不得因 `monitor_mode=background`、`next_check_at` 或任务记录存在而推断后台仍运行。
+Record `monitor_mode=inline|background|none|unknown`. Missing legacy fields mean unknown. Same-task coordinator handoff resets mode to unknown while preserving old handles for verification/disabling. Cross-task handoff and identity-generation changes clear old mode/handles. Before such resets, preserve original handles in the ledger/checkpoint and verify deactivation. Clearing a field does not prove the scheduler stopped. Mode does not prove liveness; schedule_status only reflects a recorded real nonempty handle under registry conventions, not whether it remains alive. Query the real handle separately to report scheduler status. Do not infer active background work from monitor_mode=background, next_check_at, or a task record alone.
 
-后台回调及可续接检查点应保存：任务记录位置、台账绝对路径和最新 E 事件编号、外层 U 轮次映射、每个 session 的 CLI C 轮次、未决 D 决策 ID、每个 session 的 coordinator/generation/revision、目标 session_id 和验收条件、恢复次数及只读复查次数、每个未确认派发的内容摘要与投递状态、所有仍有效的检查期限，以及 monitor 模式/真实句柄。遵守 [审计台账协议](audit.md)。恢复或上下文续接时重读最新用户要求、登记和台账尾部，并重新读取目标现场；先核对每个轮次和投递状态，不重置编号、不重播未确认指令、不按过期 deadline 盲目派发。执行要求如下：
+Background callbacks and resumable checkpoints preserve: task-record location, absolute ledger path and latest E event, outer U-round mapping, per-session CLI C rounds, unresolved D decisions, coordinator/generation/revision per Session, target session_id and acceptance criteria, recovery and read-only recheck counts, summaries and delivery states for unconfirmed dispatches, all valid deadlines, and monitor mode/real handles. Follow the [audit protocol](audit.md). On recovery/context continuation, reread current user instructions, registry, ledger tail, and live target state. Reconcile rounds and delivery before acting. Do not reset numbering, replay uncertain instructions, or blindly act on expired deadlines. Callbacks follow these rules:
 
-> 先检查任务是否仍有效，是否已完成/取消/等待用户/finalizing/closing/closed；已终态或正在关闭时停用本 monitor，不写入、不自动恢复终端。`waiting_user` 会话清除检查期限、停止重复轮询并等待用户回复。确认目标会话仍是同一任务，再读取新输出。没有有意义变化时保持安静；需要动作时依据 Goals iTerm Skill 的授权和恢复规则处理。每次发送后更新原 monitor。完成、失败、重大变化或需要用户决策时才通知。不得创建与本 monitor 并行的写入者。
+> First check that the task is still valid and not completed, canceled, waiting for the user, finalizing, closing, or closed. Disable this business monitor for terminal/finalizing states; do not write or automatically restore terminals. For waiting_user, clear check deadlines, stop polling, and await the user's reply. Confirm that the Session still belongs to the same task before reading new output. Stay quiet without meaningful change. When action is needed, follow this skill's authorization and recovery rules, updating the original monitor after every send. Notify only for completion, failure, significant changes, or required user decisions. Do not create a concurrent writer.
 
-若宿主不能保证回调串行或唯一所有者，后台 monitor 只观察和通知，由唯一前台协调者发送；不能用一个状态字段假装实现跨进程锁。调度器创建/更新结果未知时先查询现有记录，不盲目创建重复任务。
+If the host cannot guarantee serialized callbacks or sole ownership, background monitors only observe and notify; the sole foreground coordinator sends. A state field is not a cross-process lock. If scheduler creation/update is uncertain, query existing records before creating anything else.
 
-台账按任务时区的处理日期分文件。检查点同时保存稳定索引路径、当前日期文件绝对路径和最新 E 编号；恢复时先读索引及最新文件尾部。跨日仅切换事件文件，沿用原 C/D、投递状态和 monitor；先按 [审计协议](audit.md#按处理日期拆分与跨日续接) 核实衔接，不因日期变化重播指令。
+Split the ledger by processing date in the task timezone. Checkpoints keep the stable index path, current daily-file absolute path, and latest E. On resumption, read the index and latest tail first. Date rollover changes only the event file; retain C/D numbers, delivery states, and monitor. Reconcile continuity under the [audit protocol](audit.md#daily-files-and-date-rollover); never replay because the date changed.
 
-## 多会话轮询与等待选择
+## Polling multiple sessions and selecting a wait
 
-可推进目标也包括仍有已授权收尾动作或到期只读复查的 `finalizing` 会话；不能仅因业务 `monitor_status=stopped` 就把它移出收尾循环。已达到复查上限或需要用户介入的目标则退出定时轮询。
+Runnable targets include finalizing sessions with authorized cleanup actions or due read-only rechecks. Business `monitor_status=stopped` does not remove them from finalization. Remove targets from timed polling when recheck limits are reached or user intervention is required.
 
-一次轮询周期先处理所有 runnable 和已到期的会话：逐个读取现场与登记，判断、执行授权范围内的决定/派发并更新台账和 monitor；需要用户回答的会话标为 `waiting_user` 并清除其下次检查时间，然后继续处理其他仍可推进的会话。所有本轮可处理项目结束后，inline 只进入一次等待，等待最近一个仍有效的未来检查期限；单段上限为 60 秒，若期限更远则分段。不得对每个 Session 依次 sleep，也不得在未处理其他已到期会话前先睡。
+In each cycle, handle every runnable/due Session first: read live state and registry, decide, perform authorized decisions/dispatches, and update ledger and monitor. Mark sessions needing user input waiting_user and clear their next check times, then continue other runnable work. After processing everything due, enter one inline wait until the nearest valid future deadline, capped at 60 seconds per segment. Do not sleep separately for every Session or sleep before processing other due sessions.
 
-期限已过或 `next_check_at` 落在过去时，立即处理对应会话，不再等待；检查完后只设置有实际依据的下一期限。`waiting_user`、`canceled` 和无可重试条件的 blocked 会话不保留过期检查期限，也不通过 sleep/轮询模拟等待用户回复或等待不存在的事件。若仍有其他活动会话，继续处理它们并按其最近有效期限等待；若没有任何活动会话，保存当前状态并把控制交还用户/责任方，不忙等。不得编造“用户回复时间”、宿主 goal 或后台句柄。
+If next_check_at is already in the past, process that Session immediately without waiting, then set only an evidence-based next deadline. Waiting_user, canceled, and blocked sessions without a retry condition must not retain stale deadlines or use polling/sleep to simulate awaiting a user reply or nonexistent event. If other sessions remain active, handle them and wait only for their nearest valid deadline. If none remain, save state and return control to the user/responsible party rather than busy-waiting. Never invent a user reply time, host goal, or background handle.
 
-## 内联等待的进度旁白
+## Progress narration before inline waits
 
-内联执行期间，每次进入等待（sleep、等待工具返回或下一轮轮询）之前，先在宿主用户可见的进度/旁白通道（如 commentary）汇报。不要只调用等待工具，也不要用最终回答结束仍在运行的内联监控。汇报由协调者发给用户，不写入被控终端，不要求 CLI 为了汇报而中断工作。
+During inline execution, before every wait (sleep, a tool result, or the next poll), post an update through the host's user-visible progress channel, such as commentary. Do not only call a wait tool, or end still-running inline monitoring with a final response. The coordinator speaks to the user; do not write narration to the controlled terminal or interrupt CLI work to obtain it.
 
-每次用 1–3 句覆盖以下内容，任务较多时可用短列表：
+Cover these points in 1–3 sentences, or a short list for multiple tasks:
 
-- **当前工作**：哪个任务/CLI 正处于哪个阶段，最近实际观察到什么。把“CLI 自述”与已核实结果区分开；没有新输出时用“最近观察到……，目前尚无新输出”，不假称仍在修改或测试。
-- **本次等待**：等待的具体结果或事件，如测试汇总、重连结果、命令退出或新的决策提示，以及下一次检查间隔。间隔是检查计划，不是预计完成时间；无法确定耗时就明确未知。
-- **后续待办**：尚未完成的关键步骤，按依赖顺序说明，如读取测试结果 → 核对差异 → 验收 → 保存恢复信息并回收。已完成的步骤及时移除；条件分支明确说“通过后”“若失败”，不能提前宣称成功。多任务按简短任务名区分，避免混淆各自等待对象。
+- **Current work:** identify task/CLI, stage, and latest actual observation. Separate CLI claims from verified outcomes. With no new output, say what was last observed and that no update is available; do not pretend editing/testing continues without evidence.
+- **This wait:** name the result/event awaited, such as a test summary, reconnection, command exit, or decision prompt, and the next check interval. That interval is a check plan, not an estimated completion time; state unknown duration when appropriate.
+- **Remaining work:** state key unfinished steps in dependency order, such as reading tests, inspecting changes, acceptance, then recovery-data capture and cleanup. Remove completed steps. Make conditions explicit (“after it passes,” “if it fails”) rather than claiming future success. Distinguish multiple tasks by short names and their separate waits.
 
-每一次真实等待前——包括每个不超过 60 秒的等待分段——都发送上述事实旁白。多会话时说明本轮已处理的任务、最近证据、正在等的最近期限与剩余待办。旁白节奏与轮询配合：第一次等待前说明完整三项；后续每次等待前给简短更新，无变化可合并成一句，避免重复整段计划。沿用 10–15 秒起步、无变化逐步延长到 30–60 秒的节奏，不为制造旁白额外加密轮询。长工具调用可分段返回时使用分段等待，每次恢复控制后先判断再汇报，不重启原调用。工具不可中断/不可分段时，在调用前说明可见性限制，返回后立即更新；没有实际机制就不能保证等待期间定时发消息。处于 `waiting_user`、`canceled` 或无可行复查条件的 blocked 状态时，不调用等待工具，也不发“正在等用户”式轮询。
+Send this factual narration before every real wait, including each segment of at most 60 seconds. For multiple sessions, explain what was processed, latest evidence, nearest deadline, and remaining work. Give all three points before the first wait, then brief updates; unchanged observations can be one sentence rather than a repeated plan. Keep the 10–15 second initial cadence, widening to 30–60 seconds without change; do not poll more often just to produce narration. For long tools that can yield, use segmented waiting and reassess/report on each return without restarting the call. If a tool cannot be interrupted or segmented, explain that visibility limit before calling and update promptly afterward. Do not promise timed messages without a real mechanism. Do not call waits or send repetitive “waiting for the user” updates for waiting_user, canceled, or blocked states without actionable rechecks.
 
-阶段变化、收到关键结果、出现阻碍、需要用户选择或开始验收/回收时立即更新，不必等下一个周期。使用宿主支持的提问通道处理需要用户回答的选择；进度旁白只说明等待事项。用户指定汇报频率或要求安静时遵从其偏好，同时保留必要的阻碍和结果通知。后台 monitor 仍遵循前述“无变化保持安静”的通知规则，不能把内联旁白变成后台重复通知。
+Report stage changes, key results, blockers, required choices, and acceptance/cleanup transitions immediately rather than waiting for the next cycle. Use the host's question channel for user choices; progress narration only explains what is pending. Respect user preferences for frequency or quiet operation while preserving necessary blocker/result notifications. Background monitors still stay quiet without changes; inline narration must not turn into repetitive background notifications.
 
-在宿主任务记录中保留最近旁白时间、已汇报阶段、本次等待对象和剩余待办，交接时先核对最新证据再续报；这些不是 MCP 参数。旁白只包含可核实的任务进度与下一步，不输出凭据或完整终端日志，不编造百分比、完成时间或内部推理。旁白不等于台账；关键事件仍按审计协议记录，重复的无变化通知无需各建一条审计事件。
+Keep the latest narration time, reported stage, wait target, and remaining work in host task records. Recheck evidence before continuing after handoff; these are not MCP parameters. Narration includes only verifiable progress and next steps, never credentials, full logs, invented percentages/ETAs, or private reasoning. It does not replace the ledger. Record key events under the audit protocol; repeated unchanged updates need not each become separate audit events.
 
-示例（仅在相应观察确实成立时使用）：
+Examples, only when supported by actual observations:
 
-> Codex 已开始运行解析器的定向测试，终端尚未给出汇总。我会等待测试结果，15 秒后再检查；之后还需核对改动、完成验收，并按归属回收终端。
+> Codex has started the targeted parser tests; the terminal has not shown a summary yet. I will check for results in 15 seconds, then inspect the changes, verify acceptance, and reclaim the terminal according to ownership.
 
-> 本轮没有新输出，最近仍停留在测试执行界面；继续等测试汇总，30 秒后检查，后续仍需核对改动、验收和回收。
+> No new output this cycle; the last visible state was the test runner. I will check for the summary in 30 seconds. Change review, acceptance, and cleanup remain.
 
-> CLI 显示将在 20 秒后自动重连，本次等待重连结果，约 20 秒后再检查；恢复后还需完成测试和验收，随后按归属回收终端。
+> The CLI says it will reconnect in 20 seconds. I will check the reconnection result in about 20 seconds; testing and acceptance remain before terminal cleanup.
 
-## 每轮观察与行动
+## Observe and act each round
 
-1. 读取最新用户要求和任务记录，以及 [统一登记](session-lifecycle.md) 中的协调者、generation/revision。过期写入者不得行动，冲突先核实；登记锁不替代现场检查。取消、暂停、关闭、用户接管优先于旧回调。
-2. 核对 session_id，读取屏幕，必要时补历史。保存时间及简短证据，避免完整日志包含凭据。
-3. 区分运行、自动重试、待决策、明确中断、候选完成、不确定。
-4. 若准备写入，再读一次当前屏幕确认交互状态未变化；发现人工输入或其他协调者接管时停止自动写入。
-5. 将关键观察和待决策问题同步追加到 Markdown 台账。一次只执行当前必要的决定：先记意图、决策主体与依据，再发送并追加投递结果；发送后立即更新 monitor。更新登记 revision、monitor 检查点及下一次检查；不同会话独立记录轮次，记录关联到同一任务台账。
+1. Read current user requirements, task records, and coordinator/generation/revision in the [shared registry](session-lifecycle.md). Stale writers cannot act. Investigate conflicts first; registry locks do not replace live checks. Cancellation, pause, closure, and user takeover override old callbacks.
+2. Verify session_id, read the screen, and add history if needed. Save time and concise evidence, avoiding full logs with credentials.
+3. Distinguish running, automatic retry, pending decision, confirmed interruption, candidate completion, and uncertainty.
+4. Before writing, reread the screen to confirm interaction state has not changed. Stop automatic writes on human input or another coordinator's takeover.
+5. Append key observations and pending questions to the Markdown ledger. Make only the currently necessary decision: record intent, decision maker, and rationale, send, and append delivery outcome. Update the monitor immediately after sending. Update registry revision, monitor checkpoint, and next check. Keep per-session rounds separate but linked to the same task ledger.
 
-## Advisor：何时直接决定
+## Advisor: when to decide directly
 
-| 情况 | 处理 |
+| Situation | Action |
 | --- | --- |
-| CLI 问选哪种常规实现方案 | 依据用户目标、已有架构、兼容性和改动规模选一个，简述理由并继续 |
-| CLI 建议先补充只读诊断或定向测试 | 在既有任务授权内允许，并保留项目测试约束 |
-| CLI 请求执行权限 | 阅读确切动作；只在用户授权和宿主权限范围内批准本次动作，不能启用全局绕过权限模式 |
-| CLI 询问不可推断的产品取舍，或需要额外费用/发布/破坏性操作 | 保存问题、选项与建议，请用户决定，暂停自动推进；不反复弹同一问题 |
-| CLI 遇到登录、验证码、凭据缺失或账户额度问题 | 报告具体阻碍，等待用户处理；不索取或转发凭据 |
+| CLI asks which routine implementation approach to use | Choose from the goal, existing architecture, compatibility, and change size; briefly explain and continue |
+| CLI proposes read-only diagnosis or targeted tests | Allow within existing authorization while preserving project testing constraints |
+| CLI requests execution permission | Inspect the exact action; approve only within user and host permissions, without enabling a global permission-bypass mode |
+| CLI asks an uninferable product tradeoff or needs extra cost, publication, or destructive action | Preserve question, options, and recommendation; ask the user, pause automatic progress, and do not repeatedly ask the same question |
+| Login, verification code, missing credential, or account quota blocker | Report the specific issue and wait for the user; do not solicit or forward credentials |
 
-决策回复尽量具体，例如：“采用与现有模块一致的方案 A，保留公开 API；只执行受影响模块的测试，通过后返回改动和测试结果。”不要只发一个含义不明的“继续”。多行或包含多项条件时，将这些内容写入 [决策文件](dispatch.md)，终端只发引用该文件的单行短指令；观察文件读取与执行证据，读取失败不能当成已经落实裁决。
+Be specific, for example: “Use approach A to match the existing module and preserve the public API. Run only tests for affected modules, then return the changes and test results.” Do not send an ambiguous “continue.” Put multiline or multi-condition decisions in a [decision file](dispatch.md) and send only a single-line reference. Observe reading and execution evidence; a failed read is not an implemented decision.
 
-## 网络错误与有限恢复
+## Network errors and bounded recovery
 
-`timeout`、`connection reset`、`429` 等文本本身不证明任务已中断。先看 CLI 是否显示 retry/backoff、倒计时、正在工作或持续新增输出。有自动恢复迹象时等待，遵守界面提示的重试时间，不发送重复指令。
+Text such as timeout, connection reset, or 429 does not alone prove interruption. First check for retry/backoff, a countdown, working state, or continuing output. If automatic recovery is visible, wait according to the displayed retry interval without duplicate instructions.
 
-只有看到明确失败并返回可输入状态/重试菜单，且在间隔后的再次观察中无自动续跑迹象，才能认定本轮中断。两次无变化只是辅助证据；没有明确失败或停止证据时仍为不确定。长时间无输出时收集更多上下文并报告停滞，不自动 Ctrl-C。
+Treat a round as interrupted only after an explicit failure returns to input/a retry menu and a later observation shows no automatic continuation. Two unchanged observations are supporting evidence only; without explicit failure/stoppage, the state remains uncertain. For long silence, gather context and report a stall rather than automatically sending Ctrl-C.
 
-确认中断后：
+After confirmed interruption:
 
-1. 核对中断前完成到哪一步，是否已发生外部副作用。先检查实际结果，避免重复提交或发布。
-2. 优先使用当前界面明确提供的 retry/resume 操作；否则在确认 CLI 输入就绪后发送有上下文的续跑指令：“从已完成的 X 之后继续，先检查 Y 是否已完成，不重复执行；剩余验收条件为 Z。”
-3. 若 CLI 已退出到 shell，先确认退出与项目目录，再使用已验证的恢复方式；不能把续跑自然语言发给 shell。恢复参数不明确时检查该 CLI 的本地帮助，不猜测历史会话 ID。
-4. 每次恢复都重新进入 monitor，等待实际进展。默认同一阻碍最多自动恢复 2 次，重试前退避至少 30 秒并服从更长的服务提示。明确进展或阻碍改变才重置该阻碍计数；用户预算/时限优先。
-5. 连续达到上限、认证失败、额度耗尽或证据不足时标为需要介入，暂停主动重试并报告最后证据、已尝试动作和所需帮助。不能无限重启。
+1. Check progress and any external side effects before the failure. Verify actual results to avoid duplicate submission/publication.
+2. Prefer an explicit retry/resume control in the current interface. Otherwise, once CLI input is confirmed ready, send a contextual continuation: “Continue after completed X; first check whether Y already finished and do not repeat it. Remaining acceptance criteria are Z.”
+3. If the CLI exited to a shell, verify exit and project directory before using a verified resume method. Never send natural-language continuation to the shell. Read local help when recovery arguments are unclear; do not guess historical conversation IDs.
+4. Reenter monitoring after every recovery and wait for real progress. Default to at most two automatic recovery attempts for the same blocker, with at least 30 seconds of backoff or a longer service-specified delay. Reset that counter only for clear progress or a changed blocker; user budgets/deadlines take precedence.
+5. At the retry limit, authentication failure, quota exhaustion, or insufficient evidence, mark intervention required, pause active retries, and report latest evidence, attempted actions, and needed help. Do not restart indefinitely.
 
-## 完成、等待用户与停止
+## Completion, waiting for the user, and stopping
 
-CLI 回到输入框可能只是阶段结束。逐项核对验收条件：缺测试就请求定向验证，缺最终结果就请求结果；测试失败或部分完成不能标成功。
+A CLI returning to input may only mark a phase boundary. Check each acceptance criterion: request missing targeted tests or final outputs. Failed tests or partial work are not success.
 
-完成后逐会话进入 finalizing，分别持久化业务终态与回收待处理状态，再停用所有对应业务 monitor 句柄并核实结果，避免迟到回调继续派发业务工作。业务 monitor 停止不等于 finalizer 停止：唯一协调者仍负责 [自动回收](automatic-cleanup.md) 和 [资源账单/有界复查](session-lifecycle.md)。Inline finalizer 可按 [正常退出](natural-exit.md) 提交已验证的退出命令并观察结果；这不属于业务派发，不重启业务 monitor。它继续执行已授权的资源收尾；等待资源状态变化时只能做必要的只读核对、宿主可中断 sleep 和再次只读核对，不再发业务任务或恢复业务 monitor。关闭响应 `unknown` 时只读核对，不再次关闭；默认最多进行两次独立只读状态核对，仍未知则交接。只有已确认没有副作用且暂时阻碍已变化、重试仍获授权时，才可重试关闭，最多两次；此恢复次数与普通轮询次数分开计数。`waiting_user`、`canceled` 或无可行动作的 blocked 会话不继续轮询；有其他活动会话时照常处理。用户答复后先重新观察当前屏幕，再决定是否续跑和更新 monitor。
+After acceptance, enter finalizing per Session, persist business terminal state and pending cleanup separately, then disable all associated business monitor handles and verify it so late callbacks cannot dispatch more work. Stopping the business monitor does not stop the finalizer. The sole coordinator still owns [automatic cleanup](automatic-cleanup.md) and [resource accounting/bounded rechecks](session-lifecycle.md). The inline finalizer may submit verified [normal-exit](natural-exit.md) commands and observe outcomes without restarting business monitoring. It continues authorized resource finalization. While waiting for resource-state changes, use only necessary read-only checks, interruptible host sleeps, and further read-only checks; no business dispatches or monitor restoration. For unknown close responses, do not close again. Default to at most two separate read-only state/receipt checks, then hand off if still unknown. Retry closure only when no side effects are confirmed, a temporary blocker has changed, and permission still holds, at most twice. Count these retries separately from ordinary polling. Do not continue polling waiting_user, canceled, or blocked sessions without an actionable next step; keep processing other active sessions. After the user replies, reobserve the screen before resuming and updating monitoring.
 
-用户说“停止监控”只停监控；若业务已验收，仍须如实处理独立的 finalizer 责任。用户要求停止正在执行的任务时，确认准确会话后按当前 CLI 语义中断并观察结果，不发送可能退出会话的 Ctrl-D 代替取消。
+“Stop monitoring” stops monitoring only. If work is already accepted, account for the independent finalizer responsibility honestly. To stop a running task, verify the exact Session, interrupt according to the CLI's current semantics, and observe. Do not substitute Ctrl-D, which may exit the session, for task cancellation.
 
-## 关闭与恢复的监控交接
+## Monitor handoff for closing and restoration
 
-收到关闭/清理要求或满足 [自动回收](automatic-cleanup.md) 条件后，按 [关闭与恢复](closing-and-recovery.md) 处理：先通过带版本校验的 update 记录 `closing` 和新 revision，停用相关写入 monitor，阻止迟到回调续跑。停用失败时如实记录，不能声称句柄已关闭；旧代次即便再次触发也不得写入。仅管理本任务拥有的 monitor。
+On a cleanup request or [automatic cleanup](automatic-cleanup.md) eligibility, follow [closing and recovery](closing-and-recovery.md): persist closing and a new revision through a version-checked update, then disable associated writing monitors to block late callbacks. Record disable failures honestly; do not claim a handle is stopped. Old generations cannot write even if triggered again. Manage only monitors owned by this task.
 
-关闭完成记 `closed`；部分失败或结果未知逐会话保留实际状态并暂停写入，先只读核对。被跳过/拒绝的会话只有在用户仍要求原任务继续时，重新观察后恢复 monitor。恢复对话须重新绑定新 iTerm Session ID、核对原 CLI chat UUID、增加代次并确保单一写入者；旧 Session 消失本身不构成自动重建的授权。同 Session 改做新任务须显式 handoff，清除旧验收与回收资格；停业务 monitor 不代表收尾责任已结束。
+Record verified closure as closed. Preserve per-session partial failures/unknowns and pause writes for read-only reconciliation. Restore monitoring on skipped/refused sessions only after fresh observation and only if the user still wants the original task continued. Restoration requires binding the new iTerm Session ID, verifying the original CLI chat UUID, increasing generation, and enforcing one writer. Original Session disappearance is not automatic recreation permission. Reusing the same Session for a new task requires explicit handoff and clearing old acceptance/cleanup eligibility. Stopping business monitoring does not end finalization responsibility.
 
-## 定向验收场景
+## Focused validation scenarios
 
-修改本 skill 后用这些终端片段/事件做桌面推演，检查实际行动，不只校验关键词：
+After changing the skill, walk through these terminal excerpts/events and inspect the actions, not just keywords:
 
-| 观察或事件 | 应有行动 |
+| Observation / event | Expected action |
 | --- | --- |
-| “Reconnecting… retry in 20s”，随后正常输出 | 等待并观察，不重发 |
-| “Request failed”，稳定返回输入状态，再次观察仍停止 | 核对结果后恢复一次，更新 monitor |
-| send_text 超时，随后看到任务在运行 | 视为可能已投递，不重发 |
-| 多行决策尚未发送，CLI 的粘贴行为未知 | 先写本轮决策文件，记录意图，再发送单行路径指令并核对后提交；按 [文件派发场景](dispatch.md#定向验收场景) 验收 |
-| 输入框出现 `[Pasted text #1]`，正文不可核实 | 不把折叠标记判为失败或已提交；核实草稿归属及提交状态，只有本协调者的未提交草稿才可按已知编辑器语义清除并切换文件 |
-| CLI 报告文件不存在或无权读取 | 记录读取失败并核对 CLI 所在环境与可读路径；不让它凭路径猜测执行、不放宽权限、不粘贴多行正文兜底 |
-| CLI 问复用现有解析器还是新增依赖 | 根据仓库及目标直接决定，不无条件转问用户 |
-| CLI 要删除生产数据或超范围发布 | 请求用户决定，停止自动写入 |
-| “Done”，但验收要求的测试尚未运行 | 请求缺失验证，继续监控 |
-| 只有 prompt，无明确结果 | 继续读取上下文，不判完成 |
-| 会话消失，同昵称的新 session_id 出现 | 不自动重绑定或重播任务 |
-| 旧代次回调在任务已完成后触发 | 无终端写入，停用旧 monitor |
-| 上下文增长或可继续的正常续轮 | 保存检查点并继续，不因此停止任务或伪称监控中断 |
-| 宿主硬限制确实阻止继续，且无真实后台唤醒 | 保存检查点，标记未完成/unscheduled 并如实交接 |
-| 用户要求后台监控，宿主无可恢复唤醒能力 | 不声称已安排后台；明确说明限制，不静默记成后台或假造句柄 |
-| 已对同一网络阻碍恢复两次仍失败 | 暂停恢复，汇总证据并请求必要介入 |
-| 关闭期间旧 monitor 观察到 CLI 退出 | 不恢复 CLI 或派发继续；按 closing 状态只读核对 |
-| 对话恢复到新 Session ID | 核对原 chat UUID，更新绑定与代次，旧回调不得写入 |
-| 验收已通过但终端回收受阻 | 业务保持 completed、monitor 停止，单独记录回收 blocked/unknown，不重启业务 |
-| borrowed/retain 资源中的任务已完成 | 停止本任务 monitor，保留终端并报告 retained |
-| 定向测试刚开始，准备内联等待 15 秒 | 先向用户说明当前测试阶段、等待汇总、15 秒后检查及后续验收/回收；再等待，无 CLI 输入 |
-| 第二轮无新输出，下一次检查改为 30 秒 | 简短说明最近观察、暂无新证据、等待对象及剩余待办，不编造进度或 ETA |
-| CLI 自称完成但还未验证，准备读取证据 | 汇报进入验收及待核实项，不宣称完成或直接回收 |
-| 长工具调用仍在执行，可分段返回 | 每段不超过 60 秒；恢复控制后汇报并继续等待同一调用，不重启命令 |
-| 后台 monitor 连续两次没有变化 | 不发送内联旁白；仅更新观察记录，保持后台通知安静 |
-| 两个 CLI 分别测试和自动重连 | 分别说明任务、证据、等待对象及待办，不把任一进度套用于另一个 |
-| 两个会话都已到检查时间 | 先观察并处理两者，再用一个不超过 60 秒的宿主等待去最近的下一期限；不为每个会话依次 sleep |
-| 一个会话等待用户，另一个仍在运行 | 清除等待用户会话的期限，不轮询它；继续推进活动会话并只等它的最近期限 |
-| 所有会话都等待用户、已取消或无复查动作 | 清除陈旧期限，不 sleep/轮询；保存状态并交回用户/责任方 |
-| `next_check_at` 已过期 | 立即观察该会话；不先 sleep，也不把旧期限当成真实后台调度 |
-| CLI 验收通过，业务 monitor 已停止但资源仍待回收 | 保持 finalizing；inline finalizer 只做授权资源收尾和必要只读等待/核对，不重启业务 monitor |
-| close 响应未知 | 最多两次只读拓扑/回执核对；不再次调用 close，仍未知时交接 |
-| 明确暂时关闭失败且确认没有副作用 | 条件变化后最多恢复关闭两次；一般的读取轮询不消耗这两次恢复额度 |
-| 所有会话进入 `waiting_user`，准备等待回复 | 清除期限并直接等待用户的新消息，不调用 sleep 或后台重复轮询 |
+| “Reconnecting… retry in 20s,” followed by normal output | Wait and observe; do not resend |
+| “Request failed,” stable return to input, still stopped at recheck | Verify results, recover once, and update the monitor |
+| send_text timeout, followed by running work | Treat delivery as possible; do not resend |
+| Unsent multiline decision and unknown paste behavior | Write a decision file, record intent, send/verify/submit a single-line path instruction; apply [dispatch scenarios](dispatch.md#focused-validation-scenarios) |
+| `[Pasted text #1]` with unverifiable contents | Do not infer failure/submission; check ownership and submission state. Clear only this coordinator's confirmed unsubmitted draft using known semantics before switching to a file |
+| CLI cannot find/read the file | Record failure and check environment/readable paths; no guessing from filenames, permission expansion, or multiline paste fallback |
+| CLI asks whether to reuse a parser or add a dependency | Decide from repository and goal, without automatically asking the user |
+| CLI wants production-data deletion or out-of-scope publication | Ask the user and stop automatic writes |
+| “Done,” but required tests have not run | Request missing validation and keep monitoring |
+| Only a prompt, no explicit result | Read more context; do not declare completion |
+| Session disappears and a new same-nickname session_id appears | Do not automatically rebind or replay |
+| Old-generation callback fires after completion | No terminal writes; disable the old monitor |
+| Context grows or ordinary continuation is possible | Save a checkpoint and continue; do not claim monitoring was interrupted |
+| Hard host limit prevents continuation with no real background wakeup | Save a checkpoint and honestly hand off unfinished/unscheduled work |
+| User requests background monitoring without resumable host wakeup | Explain the limitation; do not fabricate a background monitor or handle |
+| Same network blocker still fails after two recoveries | Pause recovery, summarize evidence, and request necessary intervention |
+| Old monitor sees CLI exit during closure | Do not restore or continue; reconcile closing read-only |
+| Conversation restored into a new Session | Verify original chat UUID, update binding/generation, and block stale callbacks |
+| Work accepted but terminal cleanup blocked | Keep business completed and monitor stopped; record cleanup blocked/unknown without restarting work |
+| Work completes in borrowed/retain resources | Stop this task's monitor, retain terminal, and report retained |
+| Targeted tests just started before a 15-second inline wait | Tell user the stage, awaited summary, next check, and remaining acceptance/cleanup, then wait without CLI input |
+| No output in the second cycle; next check widened to 30 seconds | Briefly report latest observation, lack of new evidence, wait target, and remaining work; no invented progress/ETA |
+| CLI claims done but evidence is not yet verified | Report acceptance checks and unresolved items, not completion or immediate cleanup |
+| Long-running tool can yield partial control | Wait in segments up to 60 seconds; reassess/report and wait on the same call, without restarting it |
+| Background monitor observes no change twice | Stay quiet; update observations without inline narration |
+| Two CLIs are testing and automatically reconnecting | Distinguish each task, evidence, wait target, and remaining work |
+| Two sessions are due for checks | Process both before one host wait of at most 60 seconds until the nearest next deadline; no per-session sleeps |
+| One session waits for the user while another runs | Clear the first deadline and stop polling it; advance the active Session and wait for its deadline |
+| All sessions wait for the user, are canceled, or have no recheck action | Clear stale deadlines, do not sleep/poll, save state, and return control |
+| next_check_at has expired | Observe immediately; do not sleep first or treat the stale deadline as real background scheduling |
+| CLI accepted, business monitor stopped, resources still pending | Keep finalizing; perform only authorized cleanup and necessary read-only waits/checks without restarting business monitoring |
+| Close response unknown | At most two read-only topology/receipt checks; no repeated close, and hand off if still unknown |
+| Explicit temporary close failure with confirmed no side effects | After conditions change, retry closure at most twice; ordinary read polling does not consume this retry budget |
+| All sessions enter waiting_user | Clear deadlines and await new user messages directly; no sleep or repeated background polling |

@@ -1,82 +1,82 @@
-# 任务审计台账模板
+# Task audit ledger template
 
-> 下方分为索引文件和日期文件两部分，分别写入对应文件，不把整份模板复制到每一天。不把占位符当作事实。初始任务信息保持不变；索引指针可更新，实际状态以最新事件为准。日期使用任务时区下的处理日期。
+> The index and daily-file sections below belong in separate files; do not copy the entire template into every day. Placeholders are not facts. Keep initial task facts unchanged; index pointers may be updated, while actual state comes from the latest events. Dates use the processing date in the task timezone.
 
-## 索引文件：index.md
+## Index file: index.md
 
-# 任务审计台账：<任务名称>
+# Task audit ledger: <task name>
 
-| 项目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 任务 ID | <唯一 task-id> |
-| 任务目标 | <最终结果> |
-| 工作目录 | <绝对路径> |
-| 协调宿主 | <客户端及可用的聊天 ID> |
-| 执行 CLI | <类型、已知版本或未知> |
-| 初始 iTerm 会话 | <昵称、session_id；未创建则标明待创建> |
-| CLI 对话标识 | <chat UUID 及来源、未知或不适用；不可用 iTerm ID 代替> |
-| 恢复记录 | <recovery_record_id、recovery_record_path 及回执写入结果；尚无则注明> |
-| 创建时间及默认时区 | <实际时间含 UTC 偏移；时区名称> |
-| 初始资源归属与策略 | <逐资源 owner_task_id、原始 ID、origin、owned_container、cleanup_policy 及依据；创建后追加绑定> |
-| 授权范围与约束 | <依据用户要求，不扩大授权> |
-| 验收条件 | <可逐项检查的条件> |
-| 登记与启动能力 | <registry 绝对路径、coordinator_id/generation/revision；已观察 MCP/CLI/Skill 版本、历史持久化、身份/活动能力、降级原因> |
-| 初始监控状态 | <未建立/已接管；monitor_mode=inline/background/none/unknown，实际句柄有则记录；内联不填伪句柄> |
-| 历史完整性 | <从任务起点记录/接管前历史不完整> |
-| 索引绝对路径 | <稳定 index.md 路径；或用户指定的索引文件> |
-| 当前事件文件与最后事件 | <YYYY-MM-DD.md 的绝对路径；最后 E 编号；仅依据已写入事实更新> |
-| 旧单文件台账 | <历史卷链接；无则注明；不搬迁或改写旧事件> |
+| Task ID | <unique task-id> |
+| Goal | <required final outcome> |
+| Working directory | <absolute path> |
+| Coordinator host | <client and available chat ID> |
+| Executing CLI | <type and known version, or unknown> |
+| Initial iTerm session | <nickname and session_id; pending creation if not yet created> |
+| CLI conversation identity | <chat UUID and source, unknown, or not applicable; never substitute iTerm ID> |
+| Recovery record | <recovery_record_id, recovery_record_path, and receipt persistence result; none yet if unavailable> |
+| Creation time and default timezone | <actual time with UTC offset; timezone name> |
+| Initial resource ownership and policy | <per-resource owner_task_id, original IDs, origin, owned_container, cleanup_policy, and basis; append bindings after creation> |
+| Authorization and constraints | <based on user instructions, without expanding permission> |
+| Acceptance criteria | <individually verifiable conditions> |
+| Registry and startup capabilities | <absolute registry path, coordinator_id/generation/revision; observed MCP/CLI/Skill versions, history persistence, identity/activity capabilities, degradation reasons> |
+| Initial monitor state | <not established/taken over; monitor_mode=inline/background/none/unknown and actual handle if available; no fabricated inline handle> |
+| Historical completeness | <recorded from task start/history before takeover incomplete> |
+| Absolute index path | <stable index.md path or user-specified index file> |
+| Current event file and latest event | <absolute YYYY-MM-DD.md path; latest E; update only from persisted facts> |
+| Legacy single-file ledger | <historical-volume link, or none; do not move/rewrite old events> |
 
-### 日期文件索引
+### Daily file index
 
-| 处理日期 | 事件文件 | 事件范围 |
+| Processing date | Event file | Event range |
 | --- | --- | --- |
-| <YYYY-MM-DD> | <当天文件链接；每个日期一行> | <已写入的起止 E 编号> |
+| <YYYY-MM-DD> | <link to daily file; one row per date> | <persisted first and last E> |
 
-## 日期文件：YYYY-MM-DD.md
+## Daily file: YYYY-MM-DD.md
 
-# 任务事件：<任务名称> · <处理日期>
+# Task events: <task name> · <processing date>
 
-- **任务 ID**：<与索引一致的 task-id>
-- **处理日期与时区**：<YYYY-MM-DD；时区名称，例如 Asia/Shanghai>
-- **台账索引**：<索引文件绝对路径及链接>
-- **前一事件文件**：<前卷路径及链接；无则注明，可链接旧单文件台账>
-- **承接的最后事件编号**：<前卷最后 E 编号；首次为无，不因跨日清零>
+- **Task ID:** <same task-id as index>
+- **Processing date and timezone:** <YYYY-MM-DD; timezone such as Asia/Shanghai>
+- **Ledger index:** <absolute index path and link>
+- **Previous event file:** <path and link, or none; may reference a legacy single-file ledger>
+- **Inherited last event ID:** <previous volume's last E; none initially; never reset at rollover>
 
-轮次约定：U 为本任务的用户对话逻辑轮次；C 为每个会话的委托/回复轮次，纯读取不递增；E 为任务事件编号；D 为决策事项编号。宿主原生消息 ID 可附映射，不将逻辑编号冒充原生 ID。后台唤醒沿用最近 U 并标触发来源。
+Round conventions: U is a logical user/coordinator round within the task; C is a per-session dispatch/reply round and does not increment for reads; E is a task event; D identifies a decision. Add native host-message mappings when available without pretending logical numbers are native IDs. Background wakeups reuse the latest U and name their trigger.
 
-## 事件记录（按顺序追加）
+## Events, appended in order
 
-### E<序号> · <事件名称>
+### E<number> · <event title>
 
-- **记录时间**：<带 UTC 偏移的真实时间>
-- **动作/观察时间**：<注明类型；无来源时间时只记观察时间；补记说明>
-- **轮次**：U<编号> / C<编号、无或未知>；<可用的原生轮次映射>
-- **触发来源**：<用户消息/内联轮询/后台回调及可用 ID>
-- **会话与代次**：<准确 session_id；任务代次>
-- **事件类型**：<派发意图/投递结果/CLI 返回/待决策/决策/异常/恢复/验收/监控变更/资源绑定/启动检查/交接/登记冲突/收尾复查/回收计划/关闭意图/关闭结果/恢复验证/更正>
-- **关联记录**：<E 编号；D 编号；跨日记录附所在日期文件链接，无则注明>
-- **用户要求/委托内容**：<实际要求或发送内容；不适用时注明>
-- **文件派发（如适用）**：<派发 ID、不可变文件绝对路径、内容摘要、关联 C/D；实际单行短指令；修订/作废关系；CLI 读取状态及证据，未观察到则注明>
-- **CLI 返回与证据**：<标明摘录或摘要、工具来源、捕获时间/历史位置、是否截断；尚无则注明>
+- **Recorded at:** <actual time with UTC offset>
+- **Action/observation time:** <identify type; only observation time if source time is unavailable; note backfill>
+- **Round:** U<number> / C<number, none, or unknown>; <available native-round mapping>
+- **Trigger:** <user message/inline poll/background callback and available ID>
+- **Session and generation:** <exact session_id; task generation>
+- **Event type:** <dispatch intent/delivery result/CLI response/pending decision/decision/error/recovery/acceptance/monitor change/resource binding/startup check/handoff/registry conflict/finalization recheck/cleanup plan/closing intent/closing result/restoration verification/correction>
+- **Related records:** <E and D IDs; add daily-file links across dates, or none>
+- **User request / dispatched content:** <actual requirement or sent content; not applicable if appropriate>
+- **File dispatch, if applicable:** <dispatch ID, immutable absolute path, summary, related C/D; actual single-line instruction; revision/supersession relationship; CLI reading state and evidence, or unobserved>
+- **CLI response and evidence:** <excerpt or summary label, source tool, capture time/history position, truncation; none yet if unavailable>
 
-> <经脱敏并安全引用的 CLI 内容；不适用时删除此引用块>
+> <Redacted and safely quoted CLI content; remove if not applicable>
 
-- **协调者判断**：<区分观察事实与推断；不确定性>
-- **决策**：<待决定/具体选择/无决策；问题和选项、决策主体、简短依据及授权来源>
-- **实际动作与投递状态**：<待发送/API 已确认/投递未知/观察到执行/无写入；相关工具结果>
-- **结果与任务状态**：<业务 execution_status、协调 coordinator_phase、回收 cleanup_status 分列；本事件已知结果，不提前声称后续成功>
-- **监控**：<monitor_mode、真实句柄或无、monitor_status；当前执行内的下次检查或已确认后台调度，分别记录业务监控停止与收尾协调状态>
-- **下一步/验证边界**：<待办、待用户事项、未验证内容；验收事件逐项列证据和结论>
+- **Coordinator assessment:** <separate observed facts, inferences, and uncertainty>
+- **Decision:** <pending/specific choice/no decision; question/options, decision maker, brief rationale, and authorization source>
+- **Actual action and delivery:** <pending/API acknowledged/delivery unknown/execution observed/no write; relevant tool result>
+- **Outcome and task state:** <separate execution_status, coordinator_phase, and cleanup_status; known outcome of this event, not assumed later success>
+- **Monitoring:** <monitor_mode, actual handle or none, monitor_status; next inline check or confirmed background scheduling; separate business-monitor stop from finalizer state>
+- **Next step / verification limits:** <pending work, user decisions, unverified scope; acceptance entries give evidence/conclusions per criterion>
 
-关闭/恢复事件按需补充（普通派发事件可省略）：
+Add these for closing/restoration events as applicable; ordinary dispatch entries may omit them:
 
-- **回收依据与层级**：<显式要求/验收后自动回收；验收证据、创建/授权来源、归属和保留策略、选择容器/Session 的依据>
-- **关闭范围与参数**：<原始 Session/Tab/Window ID、影响的分屏；force、dry_run、授权来源>
-- **退出路径与证据**：<正常退出/MCP 中断关闭/已自行退出；命令及版本依据、发送前工作结束证据、实际提交/确认、CLI 退出与终端关闭分别验证；恢复降级及用户恢复要求>
-- **CLI 恢复证据**：<CLI 类型、chat UUID 及来源、cwd、resume.executable/argv、CLI 历史 persistence_status；与 MCP 回执写入结果分列>
-- **逐会话结果**：<所属结果数组、interruption/exit/closure_status 及原因；预演用 would_close/would_skip，不当作实际关闭>
-- **恢复验证**：<仅识别 UUID/已持久化/已实际恢复；新 Session ID 与原 UUID 的关联及验证证据>
-- **保留与阻碍**：<逐资源保留、借用、忙碌/未知、回执或监控问题；业务完成与回收结果分别汇总>
+- **Cleanup basis and level:** <explicit request/automatic post-acceptance cleanup; acceptance evidence, creation/authorization source, ownership/retention policy, and rationale for container/Session selection>
+- **Closing scope and parameters:** <original Session/Tab/Window IDs and affected panes; force, dry_run, authorization source>
+- **Exit path and evidence:** <normal exit/MCP interruption and closure/already exited; command and version basis, pre-send completion evidence, actual submission/confirmation, separate CLI exit and terminal closure verification; degraded recovery and user requirements>
+- **CLI recovery evidence:** <CLI type, chat UUID/source, cwd, resume.executable/argv, history persistence_status; separate from MCP receipt persistence>
+- **Per-session results:** <result array, interruption/exit/closure_status and reasons; dry runs use would_close/would_skip, not actual closure>
+- **Restoration verification:** <UUID identified/persisted/actually restored; relationship between new Session ID and original UUID, with evidence>
+- **Retention and blockers:** <per-resource retention, borrowing, busy/unknown state, receipt/monitor issues; separate business completion and cleanup outcomes>
 
-- **资源账单与移交**：<登记/观察数量；closed/retained/blocked/unknown 及原因；后续责任、复查条件、真实调度句柄或 unscheduled；report 检查结果>
+- **Resource accounting and handoff:** <registered/observed counts; closed/retained/blocked/unknown with reasons; responsibility, recheck conditions, real scheduler handle or unscheduled; report-check result>

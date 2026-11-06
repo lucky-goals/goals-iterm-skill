@@ -1,13 +1,13 @@
 # goals-iterm-skill
 
-Skill version: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
+Skill version: [v0.3.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.3)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 When this skill is activated to delegate, take over, or continue a task, the coordinating agent acts as the root orchestrator. It uses [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor progress, make routine decisions, and verify completion. Follow the [execution boundary](references/orchestrator.md): project writes, artifacts, tests, builds, dependency/configuration/service changes, and Git mutations go through the terminal CLI; the root agent and native subagents use read-only project access for context, acceptance, and review. Read-only Git inspection is allowed. Publishing still requires explicit authorization.
 
-Inline monitoring in the current execution is the default. Before each wait, the coordinator posts a brief evidence-based update to the user, reports stage changes and blockers, and does not invent percentages or completion estimates. Background monitoring is used only when explicitly requested and a real host wakeup or scheduler handle is verified. See the [progress narration protocol](references/monitoring.md#内联等待的进度旁白).
+Inline monitoring in the current execution is the default. Before each wait, the coordinator posts a brief evidence-based update to the user, reports stage changes and blockers, and does not invent percentages or completion estimates. Background monitoring is used only when explicitly requested and a real host wakeup or scheduler handle is verified. See the [progress narration protocol](references/monitoring.md#progress-narration-before-inline-waits).
 
 ## Required MCP: goals-iterm-mcp
 
@@ -265,11 +265,11 @@ The coordinator announces the absolute ledger path at the start and links it in 
 
 Ledgers are split by **processing date** in the task's recorded timezone: each task defaults to `audits/<task-id>/index.md` and `audits/<task-id>/YYYY-MM-DD.md`. The index links daily files; event and round numbers continue across dates. Late entries go into the current processing date with the original time noted. Existing single-file records remain intact and are linked when work resumes. Daily splitting does not delete history, so total storage still grows.
 
-See the [audit protocol](references/audit.md) and [Markdown template](references/audit-template.md), currently in Simplified Chinese. A planned action is recorded before sending, and its actual delivery result is appended afterward. If recording fails, the agent reports the gap and pauses new automatic work instructions rather than silently continuing without an audit trail.
+See the [audit protocol](references/audit.md) and [Markdown template](references/audit-template.md), in English. A planned action is recorded before sending, and its actual delivery result is appended afterward. If recording fails, the agent reports the gap and pauses new automatic work instructions rather than silently continuing without an audit trail.
 
 ## Maintenance and validation
 
-The entry point is [SKILL.md](SKILL.md). See [orchestrator.md](references/orchestrator.md) for the execution boundary, [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are currently in Simplified Chinese. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
+The entry point is [SKILL.md](SKILL.md). See [orchestrator.md](references/orchestrator.md) for the execution boundary, [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are in English. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
 
 After changes, validate the skill frontmatter and relative links, then walk through the scenarios in the monitoring protocol. Real CLI checks should use a dedicated test session and cover dispatch, decisions, recovery, and monitor cleanup. Static validation does not establish that background scheduling or live CLI integration works.
 

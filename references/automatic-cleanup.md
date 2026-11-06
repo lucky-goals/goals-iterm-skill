@@ -1,70 +1,70 @@
-# 验收完成后的自动回收
+# Automatic cleanup after acceptance
 
-本流程用于协调者已逐项验收通过的任务。默认回收为该任务新建的专用终端；用户要求保留时优先保留。任务暂停、失败、取消、等待用户、预算耗尽或只有 CLI 自称完成时，不触发本流程；明确的关闭/取消要求仍按 [关闭与恢复](closing-and-recovery.md) 处理。
+Use this workflow after the coordinator has verified every acceptance criterion. Reclaim dedicated terminals created for the task by default; explicit user retention takes precedence. Paused, failed, canceled, waiting-user, or budget-exhausted tasks, and tasks with only a CLI completion claim, do not trigger this workflow. Handle explicit closure/cancellation requests under [closing and recovery](closing-and-recovery.md).
 
-## 建立资源归属，而不是结束时猜测
+## Establish ownership when resources are created
 
-按 [会话生命周期协议](session-lifecycle.md) 使用统一登记脚本，在创建、接管或恢复会话时，随任务状态和 [审计台账](audit.md) 保存资源记录：
+Use the shared registry helper under the [session lifecycle protocol](session-lifecycle.md) when creating, taking over, or restoring sessions. Keep resource records with task state and the [audit ledger](audit.md):
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| owner_task_id | 归属任务；无法证明时标未知 |
-| session_id / tab_id / window_id | 工具返回的原始 ID，保留已有身份/代次证据；不能用昵称代替 |
-| origin | 本任务新建、明确接管且允许回收、借用、未知 |
-| owned_container | 通过本次创建结果或明确授权证明属于任务的 Tab/Window；不是 Session 所在父级的自动所有权 |
-| cleanup_policy | `auto_owned` 或 `retain`，注明创建/授权依据和用户的保留要求 |
-| execution_status / cleanup_status | 业务状态与回收状态分开；回收可用 pending/closing/closed/retained/blocked/unknown 等本地状态 |
+| owner_task_id | Owning task; mark unknown when ownership cannot be established |
+| session_id / tab_id / window_id | Original tool-returned IDs, retaining identity/generation evidence; nicknames are not substitutes |
+| origin | Created for this task, explicitly adopted with cleanup permission, borrowed, or unknown |
+| owned_container | A Tab/Window whose task ownership is proven by creation results or explicit authorization; parent membership alone does not confer ownership |
+| cleanup_policy | `auto_owned` or `retain`, with creation/authorization basis and any retention request |
+| execution_status / cleanup_status | Independent business and cleanup states; cleanup may be pending/closing/closed/retained/blocked/unknown |
 
-这些是宿主任务记录字段，不是 MCP 参数。创建成功后绑定真实 ID；创建结果未知时先核对，不猜出一个可回收对象。旧任务缺少归属证据时默认保留，不补造创建历史。
+These are host task-record fields, not MCP parameters. Bind real IDs after successful creation. If creation is uncertain, reconcile first; do not invent a cleanup target. Retain legacy resources without ownership evidence rather than fabricating their creation history.
 
-- `create_window` 返回的新窗口、初始 Tab 和 Session 可登记为本任务专用资源。
-- `create_tab` 返回的新 Tab 和 Session 可登记；传入的既有窗口仍默认借用。
-- 在用户原有 Session 中启动 CLI，或接管其中的任务，默认 `retain`；只有已有明确回收授权才改为可回收。授权某 Session 不自动授权其父 Tab/Window。
-- 恢复到新建专用终端时登记新资源，原 CLI chat UUID 与新 iTerm ID 分开记录；恢复到借用终端仍保留。
-- 创建时简要说明默认完成后回收的策略，不需要追加确认。用户要求“保留窗口/终端”“留着查看结果”时记录保留范围；范围含糊时保留整个相关容器。被保留容器内的资源不再自动回收。
-- 本任务新建的专用资源登记为 `auto_owned`，即使只做启动、模型或参数验证也一样。“启动一个会话”“测试能否启动”本身不表示验收后保留。只有用户明确要求留作后续交互，或确有尚未完成的复用需求时才保留，并在台账记录原话/消息来源或具体用途；不得补造“用户要求保留”。借用、归属未知和用户明确保留应分别记录，不能因父窗口是借用就把新建 Tab 也记为 retain。
+- A new Window, initial Tab, and Session returned by `create_window` may be registered as task-owned.
+- A new Tab and Session returned by `create_tab` may be registered; its preexisting Window remains borrowed by default.
+- A CLI started in a user's existing Session, or work taken over in it, defaults to `retain`. Make it reclaimable only with existing explicit cleanup authorization. Authorization for a Session does not automatically cover its parent Tab/Window.
+- When restoring into a new dedicated terminal, register the new resource and distinguish the original CLI chat UUID from new iTerm IDs. Retain borrowed restoration terminals.
+- Briefly state the default post-completion cleanup policy at creation; no additional confirmation is needed. Record the scope of requests such as “keep the terminal” or “leave it open so I can inspect the results.” If ambiguous, retain the whole affected container. Do not automatically reclaim resources inside a retained container.
+- Register new dedicated resources as `auto_owned`, including launch, model, or parameter tests. “Start a session” or “test whether it launches” does not by itself request retention after acceptance. Retain only for an explicit request to leave it available for interaction or an actual unfinished reuse need, recording the user's words/message source or concrete purpose. Never invent “the user asked to retain it.” Distinguish borrowed resources, unknown ownership, and explicit retention. A borrowed parent Window does not make a newly created Tab borrowed.
 
-## 从候选 Session 选择关闭层级
+## Select the closing level from eligible Sessions
 
-验收通过、成果与必要反馈已写入台账后，刷新 `list_sessions`，按原始 ID 和最新用户要求核对归属、任务状态及容器成员。只选业务已验收完成、仍属于本任务、未被保留或接管的 Session。识别到用户新输入、未完成子任务、后台作业或身份变化时保留相关目标；不因主任务完成就推断所有分屏都完成。
+After acceptance and recording results and necessary feedback, refresh `list_sessions`. Use original IDs and the latest user instructions to verify ownership, task state, and container membership. Select only accepted, still task-owned Sessions that have not been retained or taken over. Retain targets with new user input, unfinished subtasks, background jobs, or identity changes. Main-task completion does not imply that every pane is finished.
 
-选出**互不重叠**的目标：
+Choose **nonoverlapping** targets:
 
-1. **独占 Window**：窗口本身有本任务创建/回收授权证据，且能确认其中全部当前 Tab/Session 均属于本任务、已完成且可回收，使用 `close_window(window_id=...)`。
-2. **独占 Tab**：不满足窗口条件时，若某 Tab 本身属于本任务且全部当前分屏都符合条件，使用 `close_tab(tab_id=...)`，保留窗口及其他 Tab。
-3. **单个 Session**：容器共享、借用、存在不明成员或无法证明独占时，只对有完整归属证据的候选调用 `close_session(session_id=...)`。
+1. **Exclusive Window:** use `close_window(window_id=...)` only when the Window itself was created for the task or explicitly authorized for cleanup, and every current Tab/Session is proven to belong to this task, be complete, and be reclaimable.
+2. **Exclusive Tab:** otherwise, if the Tab itself is task-owned and all current panes qualify, use `close_tab(tab_id=...)`, retaining its Window and other Tabs.
+3. **Individual Session:** for shared/borrowed containers, unknown members, or unproven exclusivity, use `close_session(session_id=...)` only for Sessions with complete ownership evidence.
 
-仅有一个 Session、只看到一个 Tab、窗口标题/昵称相同或空闲，均不能证明独占。allowlist 可能隐藏兄弟分屏；无法确认完整成员时不提升为容器关闭，使用已核对的单 Session。容器关闭的 MCP 预检仍必须通过。
+A single visible Session/Tab, matching titles/nicknames, or idleness does not establish exclusive ownership. An allowlist may hide sibling panes. Without complete membership evidence, do not elevate to container closure; use the verified Session. Container closing must still pass MCP preflight.
 
-一个 Session 已包含在所选 Window/Tab 中，就不再为它另发关闭调用。自动收尾**不调用 `clean_all_sessions`**，避免清理其他任务的空闲资源；该工具留给范围明确的全局清理请求。对已消失目标先记录观察事实，不向同昵称的新对象补发关闭。没有剩余 Session 的父容器只报告其实际状态，不为追求“全部干净”额外猜测或关闭用户原有父级。
+Do not separately close a Session already included in a chosen Window/Tab. Automatic finalization **does not call `clean_all_sessions`**; reserve global cleanup for explicit requests covering its scope. Record targets already gone; do not send a replacement close to a new object with the same nickname. Report the observed state of empty parents; do not guess or close a user's preexisting parent container merely to make everything disappear.
 
-## 执行与停止条件
+## Execution and stopping conditions
 
-1. 保持业务 `completed`，协调阶段进入 `finalizing`，将回收标为 `pending`；通过带版本校验的 update 持久化 finalizing 和新 revision，再停止并确认这些目标的写入 monitor。唯一收尾协调者继续负责关闭和资源账单，默认在当前执行中通过真实宿主等待和只读核对完成有界复查；这不重启业务派发，也不需要虚构后台句柄。不能在停用业务 monitor 后结束协调；迟到回调不得继续派发。monitor 停止失败或台账无法写入时，标回收 `blocked`，保留终端并报告。
-2. 优先逐 Session 按 [正常退出](natural-exit.md) 核对条件、保存已知恢复资料并让 CLI 正常退出，随后按同一协议正常退出已核实空闲的剩余 shell。CLI 已退出则跳过 CLI 命令；尚未启动 CLI 的专用测试 shell 可直接核对 shell 退出条件。退出未确认时只读核实，不关闭容器。已自动消失的目标记录事实，不再操作。仅缺 chat UUID 不直接结束收尾；不满足正常退出条件时按 [关闭与恢复](closing-and-recovery.md) 判断能否使用 MCP 路径，不能以终端空闲外观替代证据。
-3. 正常退出后仍留有终端，或选择 MCP 关闭路径时，刷新剩余目标的保留要求及拓扑，重新选择互不重叠的关闭层级，再对准确目标调用 `dry_run=true, force=false`。检查成员与 blocking/would_skip；通过后追加关闭意图，用相同准确 ID、`force=false` 实际关闭。MCP 保存的是当次目标的恢复回执；CLI 已退出后的 shell 回执不证明原聊天可恢复。预演不固定成员，执行前再次复核；不能把被拒绝容器拆开试关以绕过预检。
-4. 调用后按 [工具结果契约](iterm-tools.md) 逐 Session 记录 chat UUID、cwd、resume 参数、CLI 历史状态、回执路径和实际结果，再枚举核对。关闭确认后标 `closed`；用户保留/借用资源记 `retained`；明确阻碍记 `blocked`；响应丢失或副作用不明记 `unknown`。业务完成与回收未完成可同时成立。
-5. **自动回收不升级 force、不杀进程、不盲发 Ctrl-C/Ctrl-D**。仅聊天身份缺失或适配器活动能力不足，按正常退出协议区分恢复限制与实际工作状态；不能据此改写 MCP 预检结论。剩余 shell 的活动拒绝按正常退出协议核对是否为探测限制，不能仅凭错误码要求用户批准 force，也不能仅凭计数断言空闲。真实忙碌、范围/进程不明、身份冲突、初始回执失败或正常退出资格仍无法确认时保留并报告。执行后的回执更新失败可能已有副作用，按实际结果核实。用户另有明确中断/强制关闭授权时转入 MCP 路径，沿用授权而不重复询问。
-6. 超时/部分失败不整批重试，不恢复已关闭终端，也不重新打开业务 monitor。若收尾被中断，后续协调者先恢复台账、核对真实目标；最后动作结果未知时只读核实，不能仅凭 `pending` 自动重发。已有 closed 结果不再执行。当前执行内复查遵循生命周期协议的次数与退避限制；结束执行后的未来复查，必须有用户明确的后台要求、真实宿主调度和对应授权，不能凭空承诺后台回收。
+1. Keep business `completed`, move the coordinator to `finalizing`, and mark cleanup `pending`. Persist finalizing and the new revision through a version-checked update, then stop and verify the targets' writing monitors. The sole finalizer remains responsible for closing and resource accounting, normally performing bounded read-only rechecks and real host waits within the current execution. This does not restart business dispatch or require fabricated background handles. Do not end coordination just because the business monitor stopped; late callbacks must not dispatch. If stopping the monitor or writing the ledger fails, mark cleanup `blocked`, retain resources, and report it.
+2. For each Session, prefer [normal exit](natural-exit.md): verify conditions, save known recovery details, exit the CLI, then follow that same protocol to exit the verified idle remaining shell. Skip the CLI command if it already exited. A dedicated test shell that never launched a CLI may proceed directly to shell-exit checks. Reconcile unconfirmed exit read-only without closing the container. Record resources already gone and leave them alone. Missing chat UUID alone does not end finalization. If normal exit is ineligible, assess the MCP path under [closing and recovery](closing-and-recovery.md); idle appearance is not sufficient evidence.
+3. If terminals remain after normal exit, or MCP closing was selected, refresh retention requirements and topology, choose nonoverlapping closing levels again, and call `dry_run=true, force=false` on exact targets. Inspect membership and blocking/would_skip results. After a successful preflight, append closing intent and close the same exact IDs with `force=false`. MCP persists a receipt for the current targets; a post-CLI shell receipt does not prove the original chat is recoverable. A dry run does not freeze membership; recheck before execution. Do not split a refused container into smaller close attempts to evade its preflight.
+4. After the call, record per-Session chat UUID, cwd, resume parameters, CLI history state, receipt path, and actual result under the [tool result contract](iterm-tools.md), then enumerate to verify. Mark verified closure `closed`, user-retained/borrowed resources `retained`, definite blockers `blocked`, and lost responses or uncertain side effects `unknown`. Business completion and unfinished cleanup may coexist.
+5. **Automatic cleanup does not escalate force, kill processes, or blindly send Ctrl-C/Ctrl-D.** For missing chat identity or adapter activity capabilities, use the normal-exit protocol to distinguish recovery limitations from actual work state; never rewrite MCP preflight results. Investigate shell activity refusals as possible diagnostic limitations under that protocol. Do not request force merely because of an error code or assume idleness from a count. Retain and report real activity, unknown scope/processes, identity conflicts, initial receipt failure, or unresolved normal-exit eligibility. A post-action receipt update failure may already have side effects; verify actual outcomes. When explicit interruption/force authorization already exists, use the MCP path without asking again.
+6. Do not retry whole batches after timeouts or partial failure, restore closed terminals, or restart business monitors. After interrupted finalization, restore the ledger and verify targets first. Reconcile unknown last actions read-only; `pending` alone is not a reason to resend. Do not repeat confirmed closure. Follow lifecycle retry limits and backoff for checks within the current execution. Future checks after execution ends require an explicit user request for background work, real host scheduling, and authorization; never promise background cleanup without them.
 
-结束前按 [生命周期协议](session-lifecycle.md) 运行登记 report，核对每个资源去向；blocked/unknown 需要具体原因和处理方式，不能伪记为 retained。最终同时汇报业务结果、monitor 状态和回收结果：关闭了哪些 Session/Tab/Window、保留了哪些及原因、未完成项、chat UUID/恢复回执与台账链接。不把所有被保留对象称为失败，也不把业务完成写成“所有终端已关闭”。
+Before ending, run the registry report under the [lifecycle protocol](session-lifecycle.md) and account for every resource. Blocked/unknown resources need specific reasons and next actions; do not relabel them retained. Report business results, monitor status, and cleanup separately: which Sessions/Tabs/Windows closed, which remain and why, outstanding work, chat UUID/recovery receipts, and ledger links. Not every retained resource is a failure, and business completion does not mean all terminals closed.
 
-## 定向行为验收
+## Focused behavioral validation
 
-| 场景 | 预期行动 |
+| Scenario | Expected action |
 | --- | --- |
-| 本任务新建独占窗口，全部子任务已验收、预检可关闭 | 先停 monitor，预演并关闭准确 Window；逐 Session 记录恢复信息，无重复子项调用 |
-| 在用户窗口中新建专用 Tab，其他 Tab 属于用户 | 只回收新建 Tab，保留原窗口和其他 Tab |
-| 任务专用 Tab 被加入未知分屏 | 不关整个 Tab；只处理证据完整且未被要求保留的原 Session |
-| 仅测试 CLI 启动，已验收且用户未要求保留 | 新建专用 Tab 默认 auto_owned，立即进入 finalizing，正常退出 CLI 与空闲 shell 后核验 |
-| 用户要求启动会话并留着后续交互 | 记录该保留要求，验收后 retained；不套用测试默认回收 |
-| 用户原有 Session 中任务完成，但未授权回收 | 保留 Session，业务完成、资源 retained |
-| 用户要求保留任务窗口查看结果 | 保留该窗口及其子级；仍停止业务 monitor 并记录原因 |
-| 主任务自称完成，验收未通过或仍有子任务 | 不触发自动回收 |
-| 业务验收通过，但 MCP 返回 busy/unknown | 区分实际忙碌与适配器证据不足；仅在正常退出条件完整时退出，否则保留，不自动 force |
-| 已验收且正常退出条件完整，仅缺聊天 UUID | 保存恢复限制，正常退出并验证，再回收剩余终端 |
-| monitor 停止失败或审计文件不可写 | 无关闭调用，记录/报告可核实状态 |
-| allowlist 只显示专用窗口中的一个 Session | 无完整独占证据时只按准确 Session 处理，不推断可关整个窗口 |
-| 预演后新增外来分屏或用户接管原 Session | 刷新归属和目标集合，保留受影响对象，不沿用旧容器计划 |
-| 关闭响应丢失，迟到回调开始执行 | 回调无业务写入；协调者只读核对，无重发、无重新创建 |
-| 旧任务没有资源创建/授权记录 | 默认保留，不能按昵称、cwd 或当前独占外观补造所有权 |
+| New task-owned exclusive Window; all subtasks accepted and preflight eligible | Stop monitors, dry-run and close the exact Window, record per-Session recovery details, and avoid duplicate child calls |
+| Dedicated Tab created in a user's Window with other user Tabs | Reclaim only the new Tab; retain the original Window and other Tabs |
+| Unknown pane added to a task-owned Tab | Do not close the whole Tab; handle only the original Session with complete evidence and no retention request |
+| Launch-only CLI test accepted, with no retention request | Default the new dedicated Tab to auto_owned, enter finalizing, exit CLI and idle shell normally, then verify |
+| User asks to start a session and leave it open for later interaction | Record the request and mark retained after acceptance; do not apply test cleanup defaults |
+| Work completed in a preexisting user Session without cleanup permission | Retain the Session; record business completion and retained cleanup |
+| User asks to keep the task Window for inspection | Retain that Window and its children; still stop the business monitor and record why |
+| Main task claims completion but acceptance fails or subtasks remain | Do not trigger automatic cleanup |
+| Accepted work but MCP returns busy/unknown | Distinguish actual activity from missing adapter evidence; use normal exit only when fully eligible, otherwise retain without automatic force |
+| Accepted work and normal-exit conditions satisfied, only chat UUID missing | Save limitations, exit and verify, then reclaim the terminal |
+| Monitor stop fails or audit files are unwritable | Do not call close; record/report verifiable state |
+| Allowlist exposes only one Session in a dedicated Window | Without complete exclusive ownership evidence, use only the exact Session; do not infer Window scope |
+| Foreign pane or user takeover after dry run | Refresh ownership and targets; retain affected resources rather than reusing the old container plan |
+| Close response lost and a late callback arrives | No business writes; reconcile read-only, without resend or recreation |
+| Legacy task lacks creation/authorization records | Retain by default; do not invent ownership from nickname, cwd, or current appearance |

@@ -1,13 +1,13 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
+Skill バージョン: [v0.3.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.3)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 この skill を使ってタスクを委任、引き継ぎ、または続行するとき、調整役の agent は root orchestrator として動作します。[goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 経由で iTerm2 上の Claude Code、Codex などの CLI に指示し、進捗を監視し、通常の判断を行い、完了を確認します。[実行境界](references/orchestrator.md)に従い、プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は terminal CLI 経由で行います。読み取り専用の Git 確認は直接行えます。root agent とネイティブ subagent はプロジェクトの文脈、完了条件、レビューを読み取り専用で扱います。公開には明示的な許可が必要です。
 
-現在の実行中に行うインライン監視が既定です。待機前に最新の証拠に基づく短い進捗をユーザーに伝え、段階の変化や問題を報告し、根拠のない進捗率や完了時刻は示しません。バックグラウンド監視は、ユーザーが明示的に依頼し、実際の宿主 wakeup/scheduler handle を確認できた場合だけ使います。[進捗報告の手順](references/monitoring.md#内联等待的进度旁白)を参照してください。
+現在の実行中に行うインライン監視が既定です。待機前に最新の証拠に基づく短い進捗をユーザーに伝え、段階の変化や問題を報告し、根拠のない進捗率や完了時刻は示しません。バックグラウンド監視は、ユーザーが明示的に依頼し、実際の宿主 wakeup/scheduler handle を確認できた場合だけ使います。[進捗報告の手順](references/monitoring.md#progress-narration-before-inline-waits)を参照してください。
 
 ## 必須の MCP：goals-iterm-mcp
 
@@ -229,11 +229,11 @@ iTerm MCP 経由で端末内の Coding CLI に継続して指示し、以下の�
 
 台帳はタスクに記録したタイムゾーンの**処理日**で分割します。既定の構成はタスクごとの `audits/<task-id>/index.md` と `audits/<task-id>/YYYY-MM-DD.md` です。索引から日別ファイルを参照し、イベント番号とラウンド番号は日付をまたいでも継続します。遅れて記録する場合は現在の処理日のファイルに元の時刻を明記します。既存の単一ファイルは保持し、作業再開時に日別ファイルへ関連付けます。日別分割では履歴を自動削除しないため、保存容量の合計は引き続き増えます。
 
-[監査プロトコル](references/audit.md)と [Markdown テンプレート](references/audit-template.md)を参照してください（現在は簡体字中国語）。送信前に予定を記録し、送信後に実際の結果を追記します。記録できない場合は欠落を報告して新たな自動作業指示を止め、記録なしで黙って継続しません。
+[監査プロトコル](references/audit.md)と [Markdown テンプレート](references/audit-template.md)を参照してください（英語）。送信前に予定を記録し、送信後に実際の結果を追記します。記録できない場合は欠落を報告して新たな自動作業指示を止め、記録なしで黙って継続しません。
 
 ## 保守と検証
 
-入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。これらの指示ファイルは現在、簡体字中国語で記述されています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
+入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。スキルの指示ファイルは英語で統一し、多言語 README は維持しています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
 
 変更後は skill の frontmatter と相対リンクを検証し、監視プロトコル末尾のシナリオを確認してください。実際の CLI 検証には専用のテストセッションを使い、指示の送信、判断、復旧、監視の終了処理を確認します。静的検証だけでは、バックグラウンドのスケジューリングや実際の CLI 連携が動作することは保証されません。
 

@@ -1,13 +1,13 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
+Skill 版本: [v0.3.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.3)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 透過本 skill 委派、接手或繼續任務時，負責協調的 agent 會擔任根協調者。它透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的 Claude Code、Codex 等 CLI，監控進度、自行處理一般決策並驗收結果。請遵循[執行邊界](references/orchestrator.md)：專案寫入、產物、測試、建置、相依套件/設定/服務變更及 Git 修改都交由終端 CLI 執行；唯讀 Git 檢查可以直接進行。根 agent 和原生子 agent 只讀取專案脈絡、驗收條件並進行審查。發布仍須取得明確授權。
 
-預設在目前執行中進行內聯監控。每次等待前，協調者根據最新證據向使用者簡短說明進度，及時回報階段變化和阻礙，不編造百分比或完成時間。只有使用者明確要求且已確認宿主有真正的喚醒/排程控制代碼時，才使用背景監控。詳見[進度旁白協議](references/monitoring.md#内联等待的进度旁白)。
+預設在目前執行中進行內聯監控。每次等待前，協調者根據最新證據向使用者簡短說明進度，及時回報階段變化和阻礙，不編造百分比或完成時間。只有使用者明確要求且已確認宿主有真正的喚醒/排程控制代碼時，才使用背景監控。詳見[進度旁白協議](references/monitoring.md#progress-narration-before-inline-waits)。
 
 ## 必要的 MCP：goals-iterm-mcp
 
@@ -214,11 +214,11 @@ Skill 版本: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 台帳按任務時區的**處理日期**拆分：預設每個任務儲存為 `audits/<task-id>/index.md` 和 `audits/<task-id>/YYYY-MM-DD.md`。索引連結各天檔案，跨日延續事件和輪次編號，補記寫入目前處理日並註明原時間。舊單檔記錄保留，續做時連結新日期檔案；按日拆分不會自動刪除歷史，目錄總量仍會累積。
 
-詳見 [審計協定](references/audit.md) 與 [Markdown 範本](references/audit-template.md)，目前以簡體中文撰寫。傳送前記錄意圖，傳送後附加實際結果。寫入台帳失敗時會回報缺口並暫停新的自動工作指令，不能在沒有審計記錄的情況下默默繼續。
+詳見 [審計協定](references/audit.md) 與 [Markdown 範本](references/audit-template.md)，以英文撰寫。傳送前記錄意圖，傳送後附加實際結果。寫入台帳失敗時會回報缺口並暫停新的自動工作指令，不能在沒有審計記錄的情況下默默繼續。
 
 ## 維護與驗證
 
-入口為 [SKILL.md](SKILL.md)，執行邊界見 [orchestrator.md](references/orchestrator.md)，工具語義見 [iterm-tools.md](references/iterm-tools.md)，監控、恢復及行為驗收情境見 [monitoring.md](references/monitoring.md)，清理恢復細節見 [closing-and-recovery.md](references/closing-and-recovery.md)。這些指令檔案目前使用簡體中文。工具約定依據 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；執行時以實際安裝版本的 schema 為準。
+入口為 [SKILL.md](SKILL.md)，執行邊界見 [orchestrator.md](references/orchestrator.md)，工具語義見 [iterm-tools.md](references/iterm-tools.md)，監控、恢復及行為驗收情境見 [monitoring.md](references/monitoring.md)，清理恢復細節見 [closing-and-recovery.md](references/closing-and-recovery.md)。技能指引檔案統一使用英文，並保留多語言 README。工具約定依據 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；執行時以實際安裝版本的 schema 為準。
 
 修改後驗證 skill frontmatter 與相對引用，並推演監控協定末尾的情境。實際 CLI 驗證應使用專用測試工作階段，確認任務派發、決策、恢復及監控清理；靜態驗證不代表背景排程或實際 CLI 整合已通過。
 

@@ -1,79 +1,79 @@
-# 关闭、清理与恢复 CLI 会话
+# Close, clean up, and restore CLI sessions
 
-在用户要求关闭 Session/Tab/Window、清理闲置会话、恢复已关闭对话，或 [自动回收](automatic-cleanup.md) 已确认目标符合条件时使用。工具契约见 [iterm-tools.md](iterm-tools.md)；业务完成必须结合资源归属和保留策略，不能直接作为任意终端的关闭授权。沿用用户已有授权，只有范围或具体选择无法确定时才询问。
+Use this guide when the user requests Session/Tab/Window closure, idle-session cleanup, or restoration of a closed conversation, or when [automatic cleanup](automatic-cleanup.md) establishes eligibility. See [iterm-tools.md](iterm-tools.md) for the tool contract. Business completion must be combined with ownership and retention policy; it does not authorize arbitrary terminal closure. Reuse existing authorization and ask only when scope or a specific choice is unresolved.
 
-## 选择最小工具与定位范围
+## Choose the narrowest tool and establish scope
 
-| 用户意图 | 工具选择 |
+| User intent | Tool |
 | --- | --- |
-| “关闭叫 api-worker 的会话” | `close_session(nickname="api-worker")`；只影响该 Session |
-| “关闭这个会话所在的标签页” | `close_tab(session_id=已绑定ID)`；先列出同 Tab 的全部分屏 |
-| “关闭这个窗口” | `close_window(window_id=已核对ID)`；先列出所有 Tab/Session |
-| “清理闲置会话” | `clean_all_sessions()`；仅当整个服务可访问范围都获清理授权时使用，按 idle 状态筛选 |
-| “强制关闭所有会话，包括正在运行的任务” | `clean_all_sessions(force=true)`；在用户授权与服务器许可范围内尝试全部目标 |
+| “Close the session named api-worker” | `close_session(nickname="api-worker")`; affects that Session only |
+| “Close the tab containing this session” | `close_tab(session_id=bound_id)`; enumerate all panes in the Tab first |
+| “Close this window” | `close_window(window_id=verified_id)`; enumerate all Tabs/Sessions first |
+| “Clean up idle sessions” | `clean_all_sessions()` only when its entire accessible scope is authorized; selection uses idle state |
+| “Force-close all sessions, including running tasks” | `clean_all_sessions(force=true)` attempts all targets within user authorization and server permissions |
 
-每次只传一个定位参数。昵称属于 Session，每个分屏可以单独命名；去除首尾空白后按忽略大小写的完整名称匹配，重名须消歧。对已绑定任务优先使用准确 ID；原 ID 消失后不能用同昵称的新会话替代。通过 Session 定位 Tab/Window 会影响整个容器，不只影响被命名的分屏。
+Pass exactly one selector. Nicknames belong to Sessions; each pane may be named separately. Matching uses the complete trimmed, case-folded name; resolve duplicates. Prefer exact IDs for bound tasks. If an original ID disappears, do not substitute a new same-nickname session. Selecting a Tab/Window through a Session affects the whole container, not just that pane.
 
-服务以活动状态筛选 idle，不判断会话在业务上是否“无用”、是否属于本任务，也不按空闲时长筛选。需保留某些空闲会话时，按准确 ID 逐个关闭其余获授权目标。`clean_all_sessions` 没有任意目标列表参数，服务器 allowlist 只限定可访问范围，不代表用户授权。只清理本任务时，若服务器范围更广，改用准确 ID 的逐会话关闭；不能调用全局清理再希望服务猜出任务归属。`force=true` 的“全部”也不限于本任务，因此先核对实际范围。服务保护 MCP 宿主进程及其祖先进程，遇到 `SELF_PROTECTION` 保留目标并报告；不能以 force 或改换通道绕过。
+The service selects idle by activity. It does not decide whether a session is useful, task-owned, or idle for long enough. To retain some idle sessions, close other authorized targets individually by exact ID. `clean_all_sessions` has no arbitrary target-list parameter. A server allowlist restricts access but does not grant user authorization. If only this task is authorized and server scope is broader, close exact task Sessions individually; do not call global cleanup and expect it to infer ownership. Force “all” is likewise not task-scoped. The service protects its MCP host process and ancestors. Retain and report `SELF_PROTECTION`; never bypass it with force or another channel.
 
-## 先选择退出路径
+## Choose the exit path first
 
-已验收或已明确授权关闭、且确认停止工作的 CLI，优先按 [正常退出](natural-exit.md) 保存已知资料、提交已验证的退出命令，再核对并正常退出剩余空闲 shell。该路径由唯一 finalizer 通过 MCP 输入工具执行，不要求新建聊天恢复回执；不改变下述关闭工具自身的检查。CLI 已自行退出时不重复发命令。已有终端回收授权覆盖符合条件的 shell `exit`，无需再次确认；仅要求退出 CLI 或明确保留终端时不扩展授权。
+For accepted work or explicitly authorized closure of a stopped CLI, prefer [normal exit](natural-exit.md): preserve known recovery details, submit a verified exit command, then verify and normally exit the remaining idle shell. The sole finalizer performs this through MCP input tools, without requiring a new chat recovery receipt. This does not change the checks enforced by closing tools below. Do not resend a command to an already exited CLI. Existing terminal-cleanup authorization covers eligible shell `exit` without another confirmation; CLI-exit-only or terminal-retention requests do not expand into cleanup permission.
 
-需要中断运行中任务、无法满足正常退出条件但 MCP 允许安全关闭，或用户明确要求强制关闭时，使用下面的 MCP 路径。仅有 force 授权仍不能绕过服务权限、身份、回执或未知结果保护。
+Use the MCP path below when interrupting running work, when normal exit is ineligible but MCP permits safe closure, or when the user explicitly requests force. Force authorization alone does not waive service permissions, identity checks, receipts, or unknown-outcome protections.
 
-`force=true` 不是“直接关闭空 Tab”的保证；服务可能先尝试中断并验证进程退出，交互式 shell 不一定因中断而结束。不要为解决空闲 shell 的活动误判默认升级 force；先核实正常退出资格。`INTERRUPT_UNVERIFIED` 后先只读核对当前状态与可能的副作用，不能立刻追加 shell 输入，具体条件见正常退出协议。
+`force=true` does not guarantee immediate closure of an empty Tab. The service may first interrupt and verify process exit; an interactive shell may survive interruption. Do not default to force to address a false activity diagnosis on an idle shell. Check normal-exit eligibility first. After `INTERRUPT_UNVERIFIED`, reconcile current state and possible side effects read-only before further shell input; see the normal-exit protocol for conditions.
 
-## MCP 关闭路径
+## MCP closing path
 
-1. **发现并定位**：检查实际工具 schema，用 `list_sessions` 绑定原始 Session/Tab/Window ID，核对用户意图及容器中的其他分屏。显式单会话且范围已清楚时可省略 dry_run，但仍须完成以下监控交接、确认恢复回执契约并记录审计意图后再执行关闭；批量、容器关闭或范围不明时优先 `dry_run=true` 获取目标、跳过原因与恢复准备情况。预演只读取，不发送输入、不写恢复回执、不关闭；检查 `would_close_sessions/would_skip_sessions`、`blocking_sessions` 和 `code`，不能只看 `status=dry_run` 或 `isError=false`。它不是锁，也不是未来成功的保证。
-2. **阻止旧监控干扰**：在第一次关闭动作前，将本任务中实际拟关闭目标的状态持久化为 `closing`，用带版本校验的登记 update 更新 revision，停用其写入 monitor 并核对结果。关闭期间不发送“继续”、不自动重建终端；预检已跳过且仍需工作的会话保留其 monitor，不能停止无关任务的 monitor。参见 [监控协议](monitoring.md)。
-3. **确认先保存、后退出的契约**：此 MCP 关闭路径会在内部采集 CLI 身份并持久化恢复回执，成功后才由服务中断、退出和关闭；宿主无需预先手动抓取 UUID 或另写一份回执。按下节区分恢复回执与 CLI 历史。按 [审计协议](audit.md) 记录关闭意图、授权范围、原始目标、force 和预演结果；调用返回后再追加真实回执引用，不能在调用前声称已经保存。只做清理时复用已有台账，或建立清理台账，无需制造 CLI 派发轮次。
-4. **调用并核对**：调用关闭工具完成有界退出及终端关闭，不在该操作进行中或结果未知时另发退出命令/控制键。已验证的正常退出命令只按独立的正常退出协议发送；不要把 Ctrl-C/Ctrl-D 当通用退出方式。当前 CLI 适配器按稳定进程身份执行有界 SIGINT/SIGTERM 并核验退出，退出未证实则保留终端；这不保证 CLI 历史已保存。默认不打断忙碌/未知会话；明确授权的强制关闭允许服务尝试中断当前任务，但不能承诺所有子 agent/后台进程都已结束，不能将 force 解读为任意 kill 或连续盲发 Ctrl-C。读取完整工具结果（含结构化错误和逐会话结果），再枚举核对目标是否消失；API 确认本身不等于关闭完成。
-5. **汇总真实结果**：逐会话区分已关闭、已跳过、被拒绝、失败和结果未知，给出原因及恢复记录链接。业务验收、任务中断、CLI 退出、终端关闭和可恢复性分别报告。关闭部分成功时不把整个批次记成功；结果未知先只读核对，不自动重发强制关闭。新出现的会话不加入原批次，重新核对范围再处理。
+1. **Discover and locate:** inspect the actual schema, bind original Session/Tab/Window IDs with list_sessions, and verify user intent and other container panes. For an explicit, unambiguous single-session request, dry_run may be omitted, but still perform monitor handoff, confirm receipt semantics, and record intent before closing. For batches, containers, or unclear scope, prefer dry_run=true to inspect targets, skips, and recovery readiness. A dry run only reads: no input, receipt writes, or closure. Check would_close_sessions/would_skip_sessions, blocking_sessions, and code, not just status=dry_run or isError=false. A preflight is neither a lock nor a guarantee of later success.
+2. **Prevent stale monitoring:** before the first close action, persist closing for this task's actual targets through a version-checked registry update and new revision. Stop their writing monitors and verify the result. Do not send “continue” or recreate terminals during closure. Keep monitors for preflight-skipped sessions that still need work; do not stop unrelated task monitors. See the [monitoring protocol](monitoring.md).
+3. **Confirm save-before-exit semantics:** this MCP path collects CLI identity and persists a receipt internally before the service interrupts, exits, and closes. The host does not need to manually fetch UUIDs or create a substitute receipt. Distinguish recovery receipts from history as described below. Under the [audit protocol](audit.md), record intent, authorization scope, original target, force, and dry-run results. Append actual receipt references after the call; never claim pre-call persistence. Reuse the task ledger or create a cleanup ledger for cleanup-only requests without fabricating CLI rounds.
+4. **Call and verify:** let the closing tool perform bounded exit and terminal closure. Do not interleave exit commands/control keys while it runs or its outcome is unknown. Send verified normal-exit commands only under the separate normal-exit protocol; Ctrl-C/Ctrl-D are not universal exit commands. The current CLI adapter uses stable process identity for bounded SIGINT/SIGTERM and verifies exit, retaining the terminal when unconfirmed. This does not guarantee saved CLI history. Do not interrupt busy/unknown sessions by default. Explicit force authorization permits an interruption attempt, not a guarantee that every subagent/background process ends, arbitrary killing, or repeated blind Ctrl-C. Read the complete result, including structured errors and per-session outcomes, then enumerate to verify disappearance. API acknowledgment alone is not closure.
+5. **Report actual outcomes:** distinguish closed, skipped, refused, failed, and unknown per Session with reasons and receipt links. Report acceptance, task interruption, CLI exit, terminal closure, and recoverability separately. Do not mark a partially successful batch as all successful. Reconcile unknowns read-only, without automatic forced-close retries. Do not add new sessions to the original batch without reassessing scope.
 
-默认的直接 `close_session/tab/window` 遇到忙碌或未知应在修改前拒绝整个目标，不能悄悄关闭其中一部分；`clean_all_sessions` 默认则应选择可清理目标，跳过不安全目标。预检通过后也可能因用户输入或运行时失败出现部分结果，要据实报告。默认不能从“有提示符”、零消息数、无新输出或单次屏幕读取判断空闲。
+Default direct close_session/tab/window calls should refuse the whole target before mutation when any member is busy/unknown; they must not silently close a subset. Default clean_all_sessions instead selects eligible targets and skips unsafe ones. User input or runtime failure after preflight may still produce partial results; report them accurately. A prompt, zero message count, no new output, or one screen read does not establish idleness.
 
-被拒绝/跳过的会话保留原 ID 和真实状态；仅当原任务仍需推进、用户未要求停止时，重新观察后恢复相应 monitor。结果未知时暂停写入并核实。不要让旧回调自动撤销用户的关闭意图。
+Retain original IDs and actual states for refused/skipped sessions. Resume their monitors only after fresh observation and only if the original work still needs to continue and the user has not asked to stop. Pause writes for unknown outcomes and investigate. Old callbacks must not undo the user's closure intent.
 
-## 恢复回执与 CLI 历史
+## Recovery receipts and CLI history
 
-当前 MCP 关闭工具内部先写回执后退出，按返回字段核对。正常退出路径在退出前将已知恢复资料及缺口写入台账，不能称为 MCP 恢复回执。公开关闭入口仍为四个：`close_session`、`close_tab`、`close_window`、`clean_all_sessions`。MCP 0.2.1 另提供可选的只读诊断 `inspect_sessions`，须先确认安装版本的 schema。它只读取诊断信息，不注册 CLI 对话、不保存恢复回执、不恢复对话，也不授权或执行关闭；`close_readiness=eligible_if_unchanged` 仍不是归属依据或用户授权。没有公开的 register-chat、保存回执或恢复对话工具；内部适配器方法不能当作 MCP 工具调用，也不能把手动读到的 UUID 作为关闭参数。关闭前可通过诊断或 dry_run 被动检查，两者都不生成恢复回执或关闭权限。对每个目标至少核对：
+MCP closing persists its receipt before exit; verify returned fields. Normal exit instead records known recovery details and gaps in the ledger before exiting; that is not an MCP receipt. The four public closing entry points remain close_session, close_tab, close_window, and clean_all_sessions. MCP 0.2.1 also offers optional read-only inspect_sessions; check the installed schema first. It only reads diagnostics: no CLI registration, receipt saving, restoration, authorization, or closure. `close_readiness=eligible_if_unchanged` does not prove ownership or permission. There are no public register-chat, save-receipt, or restore-conversation tools. Internal adapter methods are not callable MCP tools, and a manually read UUID is not a close parameter. Diagnostics/dry runs may inspect readiness, but neither creates a receipt or permission. For each target, check at least:
 
-- iTerm 的原 Session/Tab/Window ID 和昵称，以及 CLI 类型。
-- **CLI chat UUID** 及其证据来源；这是 CLI 的对话标识，不是 iTerm Session ID、进程 ID 或协调任务 ID。
-- 对话对应的 `cwd`、实际可用的 resume 命令/参数及必要的会话文件或记录引用；未验证的字段明确标未知。
-- MCP 恢复回执是否已写入、记录 ID/绝对路径，以及是否中断了正在运行的任务。当前回执不提供采集时间字段，台账记录宿主实际观察时间，不冒充服务采集时间。
+- Original iTerm Session/Tab/Window IDs, nickname, and CLI type.
+- **CLI chat UUID** and its evidence source. This is a CLI conversation identifier, not an iTerm Session ID, PID, or coordination task ID.
+- Conversation cwd, usable resume command/arguments, and necessary session-file or record references. Mark unverified fields unknown.
+- Whether an MCP receipt was persisted, its ID/absolute path, and whether running work was interrupted. Current receipts lack a capture-time field; record actual host observation time without calling it service capture time.
 
-当前适配器识别 Claude Code、Codex、Cursor Agent、Kiro。当前身份优先来自进程打开的会话记录；Cursor 还可使用该进程打开的日志。仅启动参数中的恢复 UUID 只能证明启动对话，不能证明 CLI 后来没有切换对话；返回 `CLI_IDENTITY_STARTUP_ONLY` 时即使已有 UUID 也不得据此中断。需当前进程打开的记录或 Cursor 当前日志等证据，冲突时保留目标。找不到可靠映射仍可能返回 `CLI_IDENTITY_MISSING`；不能用“最新对话”、相同 cwd 或会话列表代替进程绑定。技能已记录 UUID 也不会自动注册到 MCP。对 MCP 中断/关闭保留该阻碍；仅缺失/启动聊天身份时，可独立核对正常退出条件，不能直接交给用户手动退出。不要往实际忙碌或交互状态不明的 CLI 发送 `/status`、`/session-id` 或任务来探测身份。
+Current adapters recognize Claude Code, Codex, Cursor Agent, and Kiro. Prefer conversation records opened by the process for current identity; Cursor may also use logs opened by that process. A resume UUID in launch arguments proves only the starting conversation, not that it never changed. Even a known UUID cannot authorize interruption when CLI_IDENTITY_STARTUP_ONLY is returned. Use records currently opened by the process or current Cursor logs; retain on conflicts. Missing reliable mapping may produce CLI_IDENTITY_MISSING. “Latest conversation,” matching cwd, or a session list cannot replace process binding. A skill-recorded UUID is not automatically registered with MCP. Keep the blocker for MCP interruption/closing; assess normal exit independently for missing/startup-only chat identity rather than immediately asking the user to exit manually. Do not send `/status`, `/session-id`, or work to probe identity in a busy or unclear CLI.
 
-CLI 即使显示输入框，在当前后端也可能因 shell 命令仍运行而是 busy/unknown；这限制 MCP 默认关闭，不自动否定正常退出路径。按正常退出协议补齐工作结束及交互证据，不用单次读屏覆盖状态、不宣称预检通过。需要中断实际运行的任务时沿用明确 force 授权。
+Even with an input box, a CLI may be busy/unknown in the backend because its shell command remains active. This constrains default MCP closing but does not automatically rule out normal exit. Gather work-completion and interaction evidence under that protocol; do not override state from one screen read or pretend preflight passed. Use existing explicit force permission when actual running work needs interruption.
 
-区分三层证据：**已识别当前 UUID → 对话已持久化 → 已实际恢复验证**。只有当前 UUID 或空白新对话记录时，不能宣称可恢复或已验证恢复。MCP 关闭工具识别到聊天 CLI 却缺 UUID、来源冲突、稳定进程身份不明或恢复回执无法保存时，跳过/拒绝关闭；force 不豁免这些保护。仅缺 UUID 的正常退出资格另行判断，不能把来源冲突或进程不明也当作可降级的聊天恢复限制。CLI 的 `persistence_status` 可以是 `saved/empty/unknown/null`：它描述对话历史，不是 MCP 回执写入结果。当前实现不会仅因历史状态 empty/unknown 就阻止关闭；在已授权范围按真实工具结果处理，明确报告“历史恢复未证实”，不要虚构成 `RECOVERY_PERSISTENCE_FAILED`。普通 shell/job 可返回空 `cli_sessions`，它表示本次没有返回聊天记录，不证明该终端从未运行过 CLI。已有任务台账中的历史对话引用仍应保留；识别错误或证据缺失时按阻碍处理，不把空数组当成恢复安全的证明。
+Distinguish three evidence levels: **current UUID identified → conversation persisted → restoration actually verified**. A UUID or empty new-conversation record does not establish recoverability or tested restoration. MCP closing skips/refuses a recognized CLI with missing UUID, conflicting identity sources, unknown stable process identity, or failed receipt persistence. Force does not waive these protections. Missing UUID normal-exit eligibility is separate; conflicting sources or unknown processes are not merely degraded recovery. CLI persistence_status may be saved/empty/unknown/null and describes conversation history, not receipt persistence. Current implementation does not block solely for empty/unknown history. Act within authorization on actual closing results, report unverified history recovery, and do not invent RECOVERY_PERSISTENCE_FAILED. An ordinary shell/job may return empty cli_sessions, meaning no chat records were returned this time, not that the terminal never hosted a CLI. Preserve historical conversation references in the task ledger. Treat misidentification or missing evidence as blockers; an empty array is not proof of safe recovery.
 
-恢复记录与审计台账职责不同：前者保存恢复所需数据，后者记录动作、证据与结果。台账引用准确字段 `recovery_record_id`、`recovery_record_path`。默认目录为 `~/.local/state/goals-iterm-mcp/recovery`，服务可用 `GOALS_ITERM_MCP_RECOVERY_DIR` 覆盖；以实际返回路径为准。初始回执失败不以宿主自建文件替代后重试关闭。回执的 `sessions[]` 是操作前快照，内含的 interruption/exit/closure_status 可能仍为 not_attempted/pending；不能把它当成最终结果。结合返回的会话结果数组、回执 `steps` 和当前拓扑核对。回执存在也不保证后续步骤日志完整；执行中的更新失败可能在中断/关闭之后发生，按 `unknown/partial` 与逐项结果核对，不宣称未产生副作用。若响应丢失，可只读核对已知回执及拓扑；没有确切记录映射时保持未知，不能把目录最新文件认作本次结果。凭据不得写入记录或用户汇总。
+Receipts hold recovery data; ledgers hold actions, evidence, and outcomes. Reference exact recovery_record_id and recovery_record_path fields. The default directory is `~/.local/state/goals-iterm-mcp/recovery`, overridable with GOALS_ITERM_MCP_RECOVERY_DIR; use the actual returned path. Do not replace a failed initial receipt with a host-created file and retry closure. Receipt sessions[] is a pre-operation snapshot and may still show interruption/exit/closure_status as not_attempted/pending; it is not the final result. Reconcile returned result arrays, receipt steps, and current topology. A receipt's existence does not prove later log entries are complete. Update failure may follow interruption/closure; inspect unknown/partial and per-item results instead of claiming no side effects. With a lost response, read the known receipt and topology. If the exact record mapping is unknown, retain uncertainty rather than choosing the newest file. Never put credentials in records or user reports.
 
-## 恢复已关闭的对话
+## Restore a closed conversation
 
-1. 根据原始目标和恢复记录找到正确 CLI 对话，核对 UUID、工作目录、持久化证据及未完成动作。只有 UUID 无对话存储时报告恢复未证实，不承诺能够续接。
-2. 按用户要求在可用的专用会话中恢复；启动前确认 shell 状态与 cwd，从 `resume.executable` 和 `resume.argv` 逐参数正确引用构造命令，结合 `cwd` 使用；参数缺失或版本不明时在已就绪的专用 shell 检查本地帮助。不要直接拼接含空格/特殊字符的参数。不能把自然语言续跑指令发送给 shell。
-3. 核对实际加载的对话身份和内容，记录新 iTerm Session ID 与原 CLI chat UUID 的关联。无法确认同一对话时不派发任务；不要自动退化成新对话重做。
-4. 若需继续原任务，先检查此前外部副作用与产物，再从未完成处续跑；更新代次、单写入者、台账和 monitor。只有用户要求恢复界面时，恢复就绪后结束，不自行添加工作。
+1. Locate the correct CLI conversation from the original target and recovery record. Check UUID, cwd, persistence evidence, and unfinished actions. If only a UUID exists without conversation storage, report unverified recovery rather than promising resumption.
+2. Restore into an available dedicated session as requested. Verify shell state and cwd first. Construct the command from resume.executable and each resume.argv element with correct quoting, using cwd. For missing arguments or unclear versions, read local help in a ready dedicated shell. Do not directly concatenate arguments containing spaces/special characters or send natural-language continuation instructions to a shell.
+3. Verify the loaded conversation's identity and contents, recording the new iTerm Session ID's relationship to the original CLI chat UUID. Do not dispatch work if identity cannot be confirmed or silently fall back to a new conversation that repeats the work.
+4. If continuing the original task, check prior external side effects and artifacts first, then resume unfinished work. Update generation, single-writer ownership, ledger, and monitor. For interface-only restoration, stop once ready without adding work.
 
-## 定向验收场景
+## Focused validation scenarios
 
-| 场景 | 应有行动 |
+| Scenario | Expected action |
 | --- | --- |
-| 两个分屏昵称不同，用户只关闭其中一个 | 精确调用 close_session，保留同 Tab 的另一个分屏 |
-| 两个 Session 的昵称仅大小写不同 | 拒绝含糊昵称定位，绑定准确 ID 后再处理 |
-| Tab 一闲一忙，普通关闭整个 Tab | 整体拒绝；不先关闭空闲分屏 |
-| 全局清理包含空闲、忙碌、未知 | 先核对业务保留要求，再按 MCP 的 idle 筛选和逐项阻碍报告 |
-| 用户仅授权本任务清理，服务器可访问多个项目 | 按任务原始 ID 逐个关闭，不调用全局 clean_all_sessions |
-| force 已授权，但 chat UUID 缺失或 MCP 回执写入失败 | 报告阻碍，不绕过保护 |
-| force 已授权，UUID 可靠且回执可写，但 history 状态 unknown/empty | 按实际关闭结果处理，报告恢复未证实，不虚构回执写入失败 |
-| dry_run 返回 status=dry_run，但 would_skip_sessions 含阻碍 | 逐项解释预检结果；不认为已保存回执或全部可关闭 |
-| 预演后用户启动任务或新建分屏 | 重新核对目标和状态，不把预演当锁或扩大原批次 |
-| 关闭超时，旧 monitor 回调到达 | 保持 closing/未知，无续派发；只读核对实际目标 |
-| 只有启动参数 UUID，skip_code=CLI_IDENTITY_STARTUP_ONLY | MCP 中断/关闭仍受阻；若独立满足正常退出条件，可正常退出，恢复能力记未证实 |
-| 当前 UUID 可见，但对话尚未持久化 | 记录身份已识别、恢复未证实，不宣称能恢复 |
-| 恢复命令启动了新对话 | 不派发任务，报告身份不匹配并核对恢复记录 |
+| Two differently named panes; user wants only one closed | Exact close_session, retaining the other pane in the Tab |
+| Two Session nicknames differ only by case | Reject ambiguous nickname selection and bind an exact ID |
+| One idle and one busy pane; ordinary whole-Tab close | Refuse the whole target; do not close the idle pane first |
+| Global cleanup includes idle, busy, and unknown sessions | Check retention needs first, then follow MCP idle selection and report per-item blockers |
+| Only this task's cleanup authorized, server spans several projects | Close original task IDs individually; no global clean_all_sessions |
+| Force authorized but chat UUID missing or MCP receipt write fails | Report the blocker; do not bypass protections |
+| Force authorized, reliable UUID and writable receipt, history unknown/empty | Use actual close results and report unverified recovery, not fabricated receipt failure |
+| dry_run status but would_skip_sessions has blockers | Explain each result; do not assume persisted receipts or universal eligibility |
+| User starts work or adds a pane after preflight | Recheck targets/state; preflight is not a lock or scope expansion |
+| Close timeout followed by an old monitor callback | Keep closing/unknown, do not redispatch, and inspect the actual target read-only |
+| Startup-only UUID with skip_code=CLI_IDENTITY_STARTUP_ONLY | MCP interruption/closure remains blocked; independently eligible normal exit may proceed with recovery unverified |
+| Current UUID visible but conversation not persisted | Record identified identity and unverified recovery; do not promise restoration |
+| Resume command opens a new conversation | Do not dispatch; report identity mismatch and inspect the recovery record |

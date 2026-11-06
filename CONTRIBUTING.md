@@ -10,7 +10,7 @@ For a bug, open an [issue](https://github.com/lucky-goals/goals-iterm-skill/issu
 
 1. Fork the repository and create a branch for one focused change.
 2. Edit `SKILL.md` for the core workflow or `references/` for detailed guidance. Keep tool names and parameters consistent with the actual MCP schema. Do not invent host scheduling capabilities.
-3. Keep all four README editions aligned when changing user-facing instructions. English is the default README; skill instructions currently use Simplified Chinese. If translation assistance is needed, say so in the PR.
+3. Keep all four README editions aligned when changing user-facing instructions. English is the default README and the language for SKILL.md, agent metadata, and references. Preserve the localized README editions; keep commands, state fields, authorization boundaries, and cross-reference anchors consistent when translating. If translation assistance is needed, say so in the PR.
 4. Preserve the workflow invariants: exact session IDs, one write coordinator per session, monitoring after dispatch, no blind write retries, bounded recovery, evidence-based completion, and timely audit records that distinguish intent from delivery and completion.
 5. Describe the problem, changed behavior, validation performed, and any limitations in the PR.
 

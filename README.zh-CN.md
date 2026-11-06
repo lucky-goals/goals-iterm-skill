@@ -1,13 +1,13 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
+Skill 版本: [v0.3.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.3)
 
 [项目官网](https://lucky-goals.github.io/goals-iterm-skill/zh/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
 当通过本 skill 委派、接管或继续任务时，负责协调的 agent 作为根协调者。它通过 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指挥 iTerm2 中的 Claude Code、Codex 等 CLI，监控进度、自主处理常规决策并验收结果。遵循[执行边界](references/orchestrator.md)：项目写入、产物、测试、构建、依赖/配置/服务变更及 Git 修改都经由终端 CLI；只读 Git 检查可以直接进行。根 agent 和原生子 agent 只读访问项目上下文、验收条件并进行评审。只有获得明确授权才能发布。
 
-默认在当前执行中内联监控。每次等待前，协调者根据最新证据向用户简要说明进度，及时报告阶段变化和阻碍，不编造百分比或完成时间。只有用户明确要求且已核实宿主确有唤醒/调度句柄时，才使用后台监控。详见[进度旁白协议](references/monitoring.md#内联等待的进度旁白)。
+默认在当前执行中内联监控。每次等待前，协调者根据最新证据向用户简要说明进度，及时报告阶段变化和阻碍，不编造百分比或完成时间。只有用户明确要求且已核实宿主确有唤醒/调度句柄时，才使用后台监控。详见[进度旁白协议](references/monitoring.md#progress-narration-before-inline-waits)。
 
 ## 必需的 MCP：goals-iterm-mcp
 
@@ -229,7 +229,7 @@ Skill 版本: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ## 维护与验证
 
-入口是 [SKILL.md](SKILL.md)，执行边界见 [orchestrator.md](references/orchestrator.md)，工具语义见 [iterm-tools.md](references/iterm-tools.md)，监控、恢复及行为验收场景见 [monitoring.md](references/monitoring.md)，清理恢复细节见 [closing-and-recovery.md](references/closing-and-recovery.md)。这些指令文件目前使用简体中文。工具约定依据 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；运行时以实际安装版本 schema 为准。
+入口是 [SKILL.md](SKILL.md)，执行边界见 [orchestrator.md](references/orchestrator.md)，工具语义见 [iterm-tools.md](references/iterm-tools.md)，监控、恢复及行为验收场景见 [monitoring.md](references/monitoring.md)，清理恢复细节见 [closing-and-recovery.md](references/closing-and-recovery.md)。技能指导文件统一使用英文，多语言 README 继续保留。工具约定依据 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；运行时以实际安装版本 schema 为准。
 
 更改后校验 skill frontmatter 与相对引用，并推演监控协议末尾的场景。真实 CLI 验证应使用专用测试会话，确认任务派发、决策、恢复及监控清理；静态校验不代表后台调度或真实 CLI 集成已通过。
 
