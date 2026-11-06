@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill version: [v0.3.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.1)
+Skill version: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -153,6 +153,8 @@ On the MCP close-tool path, before interruption, CLI exit, or native close, the 
 Each session result uses the public fields `interruption`, `exit`, `closure_status`, and `cli_sessions`; chat records may include `cli`, `chat_uuid`, `cwd`, identity source, persistence status, and resume data. When a receipt exists, the operation reports its `recovery_record_id` and `recovery_record_path`. An empty or unknown CLI-history `persistence_status` is not itself a blocker. UUID identity evidence and recovery-receipt safeguards are separate from actual history persistence and resumability, so an ID alone does not guarantee resume. Read the response `status` and the `closed_sessions`, `skipped_sessions`, `failed_sessions`, and `unknown_sessions` arrays even when MCP sets `isError=true`.
 
 ### Automatic cleanup for task-owned resources
+
+New task-owned sessions use `auto_owned`, including launch-only tests; a request to start a session does not itself request retention. Record the source of explicit retention requests. After a verified CLI exit (`/quit`, `/exit`, or a supported exit key), a verified idle shell may receive `exit` through MCP under the existing cleanup authorization, without another approval. Shell `exit` has no slash. Verify that the original Session/Tab disappears; if it remains, use the normal MCP close path. Activity diagnostics may be incomplete, but counts alone do not prove a shell is idle; unknown jobs, scope restrictions, and uncertain writes still block automatic exit.
 
 After acceptance criteria are verified and the business monitor has stopped, reclaim task-owned resources by first following the [normal CLI exit protocol](references/natural-exit.md): preserve known recovery information, submit the verified exit command once, and verify exit before closing any remaining shell. Missing chat UUID evidence alone does not prevent this path; an explicit requirement to preserve a resumable conversation still takes precedence. A CLI claim that it is done is not acceptance evidence. Retain borrowed or user-kept resources unless existing authorization permits cleanup.
 

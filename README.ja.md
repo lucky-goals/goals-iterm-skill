@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.3.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.1)
+Skill バージョン: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -136,6 +136,8 @@ MCP 終了ツールの経路では、中断、CLI の終了、またはネイテ
 各セッション結果は公開フィールド `interruption`、`exit`、`closure_status`、`cli_sessions` を使用します。チャット記録には `cli`、`chat_uuid`、`cwd`、識別情報の取得元、永続化状態、再開データが含まれる場合があります。レシートがある場合、操作は `recovery_record_id` と `recovery_record_path` を返します。CLI 履歴の `persistence_status` が空または不明でも、それだけで阻害要因にはなりません。UUID の識別情報と復旧レシートの安全保護は、履歴が実際に永続化され再開できるかどうかとは別です。ID だけで再開を保証しません。MCP の応答が `isError=true` でも、`status` と `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` の配列を読み取ってください。
 
 ### タスク所有リソースの自動回収
+
+起動確認だけのテストを含め、新規のタスク専用セッションは既定で `auto_owned` とします。起動の依頼だけでは保持の指定にならず、明示的な保持要求は出典を記録します。確認済みの `/quit`、`/exit` または終了キーで CLI を終了した後、アイドル状態を確認した shell には、既存の回収認可に基づいて MCP 経由で `exit` を送信でき、再承認は不要です。shell の `exit` にスラッシュは付けません。元の Session/Tab の消失を確認し、残る場合は通常の MCP クローズ経路を使います。活動診断が不完全でも、件数だけでアイドルとは判断しません。不明なジョブ、範囲制限、書き込み結果が不明な場合は自動終了を止めます。
 
 受け入れ条件を確認し、業務 monitor を停止した後は、[正常終了プロトコル](references/natural-exit.md)でタスク専用リソースを回収します。既知の復旧情報を保存し、検証済みの CLI 終了コマンドを一度だけ送信し、終了を確認してから残った shell を閉じます。chat UUID の欠落だけでは正常終了を妨げません。ただし、ユーザーが再開可能であることを終了条件にした場合はその指定を優先します。CLI の完了宣言だけで受け入れ済みとは判断せず、借用中または保持指定されたリソースは既存の認可に従って保持します。
 

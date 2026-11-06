@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.1](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.1)
+Skill 版本: [v0.3.2](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.2)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -130,6 +130,8 @@ Skill 版本: [v0.3.1](https://github.com/lucky-goals/goals-iterm-skill/releases
 每個工作階段結果都使用公開欄位 `interruption`、`exit`、`closure_status` 與 `cli_sessions`；聊天記錄可能包含 `cli`、`chat_uuid`、`cwd`、身分來源、持久化狀態與恢復資料。有回執時，操作會回傳 `recovery_record_id` 與 `recovery_record_path`。CLI 歷史的 `persistence_status` 為空或未知本身不是阻礙。UUID 身分證據與恢復回執安全防護，和歷史是否實際持久化、能否恢復是不同層次；只有 ID 不保證可恢復。即使 MCP 回應的 `isError=true`，仍要讀取其中的 `status` 以及 `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` 陣列。
 
 ### 自動回收任務擁有的資源
+
+新建任務專用工作階段預設為 `auto_owned`，包括僅測試啟動的情境；要求啟動工作階段本身不表示要求保留，明確保留須記錄來源。CLI 經已驗證的 `/quit`、`/exit` 或退出鍵結束後，已核實閒置的 shell 可沿用回收授權，透過 MCP 傳送 `exit`，無須再次確認。shell 的 `exit` 不帶斜線。核驗原 Session/Tab 消失；仍留存時再走一般 MCP 關閉流程。活動診斷可能不完整，但計數不能單獨證明閒置；未知作業、範圍限制及寫入結果不明仍會阻止自動退出。
 
 驗收通過並停止業務 monitor 後，預設按[正常退出協定](references/natural-exit.md)回收任務專用資源：儲存已知恢復資料，提交一次已驗證的 CLI 退出命令，核實退出後再關閉剩餘 shell。僅缺聊天 UUID 不單獨阻止正常退出；使用者明確要求必須可恢復後才關閉時仍優先遵守。CLI 自稱完成不等於驗收通過；借用或使用者要求保留的資源仍按原授權保留。
 
