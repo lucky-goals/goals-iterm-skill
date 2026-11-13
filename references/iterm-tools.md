@@ -48,8 +48,8 @@ Closing fields and interpretation:
 | `would_close_sessions`, `would_skip_sessions` | Dry-run candidates/exclusions; status=dry_run does not prove all checks passed. Inspect both arrays, blocking_sessions, and code |
 | `target.session_ids` | Original scope selected by this call, not a lock or approval token for the next call |
 | `recovery_record_id`, `recovery_record_path` | Actual receipt; may be null for dry runs, no candidates, or pre-exit refusal. Do not invent paths |
-| Per-item `state/reason/skip_code` | Activity/blockers, possibly omitted; read actual values, not prompt appearance as idle evidence |
-| Per-item `interruption/exit/closure_status` | Interruption, exit, and closure states; public results do not use internal task_interrupted / cli_exit_status fields |
+| Per-item `state/reason/probe_reason/skip_code` | Activity/blockers (`ACTIVITY_BLOCKED` vs `ACTIVITY_UNKNOWN` plus underlying `probe_reason` such as `prompt_unavailable`, or `exited`/`session_processes_exited` on ended panes); read actual values, not prompt appearance as idle evidence |
+| Per-item `interruption/exit/closure_status` | Interruption, exit, and closure states (`interruption="not_attempted"` is preserved on pre-signal validation refusals); public results do not use internal task_interrupted / cli_exit_status fields |
 | Per-item `cli_sessions[]` | cli/chat_uuid/cwd/identity_source/persistence_status/resume; resume is an executable plus argv array, not a shell string ready for concatenation |
 
 If a target disappears automatically after exit, results may include `closure_method=auto_closed_after_exit` without a native close call. Verified disappearance is the criterion; success need not include native closing. The current public force value also passes through to iTerm's native `async_close(force=...)`; it is not a separately configurable parameter.

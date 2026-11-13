@@ -358,6 +358,7 @@ else:
         self.register(
             session_id="S3",
             task_id="T3",
+            execution_status="completed",
             cleanup_status="retained",
             retention_reason="user asked to keep it",
             coordinator_phase="settled",
@@ -382,6 +383,7 @@ else:
 
     def test_schedule_requires_a_real_handle_and_empty_report_is_unsettled(self) -> None:
         self.register(
+            execution_status="completed",
             coordinator_phase="settled",
             cleanup_status="closed",
             monitor_status="stopped",
@@ -626,6 +628,110 @@ else:
         report = registry.report_records(self.state)
         self.assertFalse(report["settled"])
         self.assertIn("created_without_nickname", report["resources"][0]["outstanding_reasons"])
+
+    def test_initial_runtime_binding_preserves_owned_container_and_close_receipt(self) -> None:
+        created = self.register(
+            window_id="w1",
+            tab_id="t1",
+            session_epoch="e1",
+            broker_epoch="b1",
+            owned_container={"window_id": "w1", "tab_id": "t1", "basis": "created"},
+        )
+        launched = registry.update_record(
+            "S1",
+            "C1",
+            1,
+            created["revision"],
+            {
+                "cli": "codex",
+                "process_identity": {"pid": 100, "start": "t0"},
+                "monitor_status": "running",
+                "monitor_mode": "inline",
+            },
+            self.state,
+        )
+        self.assertEqual(launched["generation"], 1)
+        self.assertEqual(launched["owned_container"]["window_id"], "w1")
+
+        closing = registry.update_record(
+            "S1",
+            "C1",
+            1,
+            launched["revision"],
+            {
+                "execution_status": "completed",
+                "coordinator_phase": "finalizing",
+                "cleanup_status": "closing",
+                "acceptance_evidence": {"tests_passed": True},
+            },
+            self.state,
+        )
+        closed = registry.update_record(
+            "S1",
+            "C1",
+            1,
+            closing["revision"],
+            {
+                "chat_uuid": "chat-uuid-1",
+                "identity_source": "process_open_file",
+                "recovery_status": "ready",
+                "recovery_record_path": "/tmp/close-receipt.json",
+                "cleanup_status": "closed",
+                "coordinator_phase": "settled",
+                "monitor_status": "stopped",
+            },
+            self.state,
+        )
+        self.assertEqual(closed["generation"], 1)
+        self.assertEqual(closed["owned_container"]["window_id"], "w1")
+        self.assertEqual(closed["acceptance_evidence"], {"tests_passed": True})
+        self.assertEqual(closed["chat_uuid"], "chat-uuid-1")
+        self.assertTrue(registry.report_records(self.state)["settled"])
+
+        with self.assertRaisesRegex(registry.RegistryError, "separate new-generation"):
+            registry.update_record(
+                "S1",
+                "C1",
+                1,
+                closed["revision"],
+                {"chat_uuid": "chat-uuid-2", "cleanup_status": "closed"},
+                self.state,
+            )
+        replaced = registry.update_record(
+            "S1",
+            "C1",
+            1,
+            closed["revision"],
+            {"chat_uuid": "chat-uuid-2"},
+            self.state,
+        )
+        self.assertEqual(replaced["generation"], 2)
+        self.assertNotIn("acceptance_evidence", replaced)
+
+    def test_settled_report_rejects_running_execution_and_leaked_schedule_handle(self) -> None:
+        created = self.register(
+            execution_status="running",
+            cleanup_status="closed",
+            coordinator_phase="settled",
+            monitor_status="stopped",
+            schedule_handle="timer-1",
+        )
+        report = registry.report_records(self.state)
+        self.assertFalse(report["settled"])
+        reasons = report["resources"][0]["outstanding_reasons"]
+        self.assertIn("execution_status=running", reasons)
+        self.assertIn("scheduled_while_settled", reasons)
+
+        cleared = registry.update_record(
+            "S1",
+            "C1",
+            1,
+            created["revision"],
+            {"execution_status": "completed", "schedule_handle": None},
+            self.state,
+        )
+        self.assertIsNone(cleared.get("schedule_handle"))
+        self.assertTrue(registry.report_records(self.state)["settled"])
 
 
 if __name__ == "__main__":  # pragma: no cover

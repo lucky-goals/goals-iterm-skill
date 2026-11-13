@@ -121,19 +121,24 @@ CONTROLLED_FIELDS = frozenset(
         "origin",
     }
 )
-IDENTITY_FIELDS = frozenset(
+TOPOLOGY_IDENTITY_FIELDS = frozenset(
     {
         "window_id",
         "tab_id",
         "session_epoch",
         "broker_epoch",
+        "owned_container",
+    }
+)
+RUNTIME_BINDING_FIELDS = frozenset(
+    {
         "cli",
         "chat_uuid",
         "identity_source",
         "process_identity",
-        "owned_container",
     }
 )
+IDENTITY_FIELDS = TOPOLOGY_IDENTITY_FIELDS | RUNTIME_BINDING_FIELDS
 OPTIONAL_FIELDS = frozenset(
     {
         "nickname",
@@ -685,7 +690,21 @@ def update_record(
             authorization = patch.get("cleanup_authorization")
             if not isinstance(authorization, str) or not authorization.strip():
                 _fail("cleanup_policy=auto_owned requires explicit new cleanup authorization in the same patch")
-        identity_changed = any(field in patch and patch[field] != record.get(field) for field in IDENTITY_FIELDS)
+        topology_changed = any(
+            field in patch and patch[field] != record.get(field)
+            for field in TOPOLOGY_IDENTITY_FIELDS
+        )
+        # Newly created shells start with cli/chat_uuid/process_identity unset.
+        # Populating those runtime bindings for the first time records evidence
+        # for the current generation; replacing or clearing an already-bound
+        # runtime identity starts a new generation.
+        runtime_binding_replaced = any(
+            field in patch
+            and record.get(field) is not None
+            and patch[field] != record.get(field)
+            for field in RUNTIME_BINDING_FIELDS
+        )
+        identity_changed = topology_changed or runtime_binding_replaced
         if identity_changed:
             if record["cleanup_status"] in {"closing", "unknown"}:
                 _fail("identity/topology change requires reconciliation of cleanup closing/unknown state first")
@@ -804,12 +823,18 @@ def _report_row(record: Mapping[str, Any]) -> dict[str, Any]:
     row = dict(record)
     reasons: list[str] = []
     cleanup_status = record["cleanup_status"]
+    execution_status = record.get("execution_status", "running")
     phase = record.get("coordinator_phase", "active")
     monitor_status = record.get("monitor_status", "unknown")
+    has_schedule = bool(str(record.get("schedule_handle") or "").strip())
     if phase != "settled":
         reasons.append(f"coordinator_phase={phase}")
+    if execution_status == "running" and (phase == "settled" or cleanup_status == "closed"):
+        reasons.append("execution_status=running")
     if monitor_status in {"running", "failed", "unknown"}:
         reasons.append(f"monitor_status={monitor_status}")
+    if has_schedule and phase == "settled" and monitor_status == "stopped":
+        reasons.append("scheduled_while_settled")
     if cleanup_status in {"pending", "closing", "blocked", "unknown"}:
         reasons.append(f"cleanup_status={cleanup_status}")
     if cleanup_status == "retained" and not str(record.get("retention_reason") or "").strip():
@@ -820,7 +845,7 @@ def _report_row(record: Mapping[str, Any]) -> dict[str, Any]:
     row["outstanding_reasons"] = reasons
     # A timestamp is only a requested check point; without a real scheduler
     # handle this remains explicitly unscheduled.
-    row["schedule_status"] = "scheduled" if str(record.get("schedule_handle") or "").strip() else "unscheduled"
+    row["schedule_status"] = "scheduled" if has_schedule else "unscheduled"
     return row
 
 
