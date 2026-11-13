@@ -33,14 +33,67 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
+import secrets
 import stat
 import tempfile
+import unicodedata
 from contextlib import contextmanager
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Callable, Iterable, Iterator, Mapping
 
 
 SCHEMA_VERSION = 1
 DEFAULT_STATE_PATH = Path(os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state")) / "goals-iterm-skill" / "session-registry.json"
+
+MIN_NICKNAME_LENGTH = 4
+MAX_NICKNAME_LENGTH = 6
+MAX_EXPLICIT_NAME_LENGTH = 64
+RESERVED_SELECTORS = frozenset({"active", "all", "current", "focused", "*"})
+DEFAULT_SHELL_LABELS = frozenset({"shell", "zsh", "-zsh", "bash", "-bash", "sh", "-sh", "login"})
+UNNAMED_FALLBACK_RE = re.compile(r"^session-[0-9a-f]{8}$", re.IGNORECASE)
+
+NICKNAMES: tuple[str, ...] = (
+    "acorn", "alpha", "amber", "apex", "apple", "arrow", "aspen", "atlas",
+    "azure", "badge", "bamboo", "basil", "beacon", "berry", "birch", "blaze",
+    "bloom", "bolt", "breeze", "brook", "cabin", "cactus", "candle", "canyon",
+    "cedar", "charm", "cider", "cliff", "cloud", "clover", "cobalt", "comet",
+    "coral", "cosmos", "crane", "crest", "crisp", "crown", "daisy", "dawn",
+    "delta", "dingo", "dove", "dragon", "dream", "drift", "dune", "eagle",
+    "earth", "echo", "ember", "falcon", "fern", "flame", "flare", "flash",
+    "flint", "flora", "focus", "forge", "frost", "galaxy", "gale", "garden",
+    "gecko", "glade", "gleam", "globe", "grain", "grape", "grove", "halo",
+    "harbor", "haven", "hawk", "hazel", "helix", "heron", "honey", "husky",
+    "igloo", "indigo", "iris", "island", "ivory", "jade", "jazz", "jewel",
+    "kayak", "kite", "kitten", "kiwi", "koala", "lagoon", "lake", "lark",
+    "laser", "laurel", "lava", "leaf", "lemon", "lilac", "lime", "lion",
+    "lotus", "lucky", "lumen", "lunar", "lynx", "magic", "mango", "maple",
+    "marsh", "meadow", "meteor", "mint", "misty", "mocha", "moose", "moss",
+    "music", "nectar", "neon", "nexus", "noble", "north", "nova", "oasis",
+    "ocean", "olive", "omega", "onyx", "opera", "orbit", "orchid", "otter",
+    "panda", "peach", "pearl", "pebble", "pepper", "petal", "piano", "pilot",
+    "pine", "pixel", "planet", "plum", "polar", "pond", "poppy", "prism",
+    "quartz", "quest", "radar", "raven", "reef", "river", "robin", "rocket",
+    "rose", "ruby", "safari", "sage", "sail", "scout", "shore", "silver",
+    "solar", "sonic", "spark", "spruce", "star", "stone", "storm", "summit",
+    "sunny", "swift", "tango", "teal", "terra", "tiger", "timber", "topaz",
+    "torch", "trail", "tulip", "velvet", "violet", "vista", "whale", "willow",
+    "winter", "wolf", "wonder", "xenon", "zebra", "zenith", "zephyr", "zinc",
+)
+
+
+def _validate_nickname_catalogue() -> None:
+    if len(NICKNAMES) != 200:
+        raise RuntimeError("NICKNAMES must contain exactly 200 entries")
+    if len({name.casefold() for name in NICKNAMES}) != 200:
+        raise RuntimeError("NICKNAMES must contain 200 distinct entries")
+    for name in NICKNAMES:
+        if not MIN_NICKNAME_LENGTH <= len(name) <= MAX_NICKNAME_LENGTH:
+            raise RuntimeError(f"invalid nickname length: {name!r}")
+        if not name.isascii() or not name.isalpha() or name != name.lower():
+            raise RuntimeError(f"invalid nickname characters: {name!r}")
+
+
+_validate_nickname_catalogue()
 
 ORIGINS = frozenset({"created", "adopted", "borrowed", "unknown"})
 CLEANUP_POLICIES = frozenset({"auto_owned", "retain"})
@@ -83,6 +136,7 @@ IDENTITY_FIELDS = frozenset(
 )
 OPTIONAL_FIELDS = frozenset(
     {
+        "nickname",
         "generation",
         "revision",
         "execution_status",
@@ -208,6 +262,28 @@ def _validate_optional_path(value: Any, name: str) -> None:
         _fail(f"{name} must be an absolute path")
 
 
+def _validate_nickname(value: Any, *, created: bool = False) -> str:
+    if not isinstance(value, str):
+        _fail("nickname must be a non-empty string")
+    trimmed = value.strip()
+    if not trimmed:
+        _fail("nickname must not be empty")
+    if len(trimmed) > MAX_EXPLICIT_NAME_LENGTH:
+        _fail(f"nickname must contain at most {MAX_EXPLICIT_NAME_LENGTH} characters")
+    try:
+        trimmed.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:
+        raise RegistryError("nickname is not valid Unicode") from exc
+    if any(unicodedata.category(char).startswith("C") for char in trimmed):
+        _fail("nickname must not contain control characters")
+    folded = trimmed.casefold()
+    if folded in RESERVED_SELECTORS:
+        _fail("nickname must not be a reserved selector")
+    if created and (UNNAMED_FALLBACK_RE.match(trimmed) or folded in DEFAULT_SHELL_LABELS):
+        _fail("created session nickname must be an explicit name, not a default shell label or session-<id> placeholder")
+    return trimmed
+
+
 def _validate_record(record: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(record, Mapping):
         _fail("record must be a JSON object")
@@ -281,6 +357,8 @@ def _validate_record(record: Mapping[str, Any]) -> dict[str, Any]:
             _fail(f"{field} must be a string")
     if "cleanup_authorization" in result:
         _require_nonempty_string(result["cleanup_authorization"], "cleanup_authorization")
+    if "nickname" in result and result["nickname"] is not None:
+        result["nickname"] = _validate_nickname(result["nickname"], created=(result["origin"] == "created"))
     for field in ("window_id", "tab_id", "session_epoch", "broker_epoch", "cli", "chat_uuid", "identity_source"):
         if field in result and result[field] is not None:
             if isinstance(result[field], bool) or not isinstance(result[field], (str, int, float)):
@@ -292,6 +370,9 @@ def _new_record(input_record: Mapping[str, Any]) -> dict[str, Any]:
     """Validate and fill defaults for a newly registered record."""
 
     record = dict(input_record)
+    if record.get("origin") == "created":
+        if "nickname" not in record or record["nickname"] is None:
+            _fail("origin=created requires an explicit non-empty nickname")
     if "generation" in record and record["generation"] != 1:
         _fail("new records must start at generation 1")
     if "revision" in record and record["revision"] != 1:
@@ -506,6 +587,23 @@ def _read_json_object(path: os.PathLike[str] | str, label: str) -> dict[str, Any
     return value
 
 
+def _ensure_unique_active_nickname(
+    records: Mapping[str, Mapping[str, Any]],
+    session_id: str,
+    candidate: Mapping[str, Any],
+) -> None:
+    nickname = candidate.get("nickname")
+    if not isinstance(nickname, str) or not nickname.strip() or candidate.get("cleanup_status") == "closed":
+        return
+    wanted = nickname.strip().casefold()
+    for other_id, other in records.items():
+        if other_id == session_id or other.get("cleanup_status") == "closed":
+            continue
+        other_name = other.get("nickname")
+        if isinstance(other_name, str) and other_name.strip().casefold() == wanted:
+            _fail(f"nickname already in use by active session {other_id}: {nickname}")
+
+
 def register_record(record: Mapping[str, Any], path: os.PathLike[str] | str | None = None) -> dict[str, Any]:
     """Register a new session, refusing to overwrite an existing session ID."""
 
@@ -516,6 +614,7 @@ def register_record(record: Mapping[str, Any], path: os.PathLike[str] | str | No
         session_id = normalized["session_id"]
         if session_id in state["records"]:
             _fail(f"session_id already registered: {session_id}")
+        _ensure_unique_active_nickname(state["records"], session_id, normalized)
         state["records"][session_id] = normalized
         return normalized
 
@@ -599,6 +698,8 @@ def update_record(
                     "do not submit completion/cleanup/recovery fields in the same patch: "
                     + ", ".join(sorted(forbidden_after_rebind))
                 )
+        if record["origin"] == "created" and "nickname" in patch and patch["nickname"] is None:
+            _fail("cannot clear nickname on a created session")
         updated = dict(record)
         if identity_changed:
             _reset_for_new_generation(updated, record["generation"] + 1)
@@ -608,6 +709,7 @@ def update_record(
         updated["revision"] = record["revision"] + 1
         updated["updated_at"] = _utc_now()
         updated = _validate_record(updated)
+        _ensure_unique_active_nickname(state["records"], session_id, updated)
         state["records"][session_id] = updated
         return updated
 
@@ -712,6 +814,8 @@ def _report_row(record: Mapping[str, Any]) -> dict[str, Any]:
         reasons.append(f"cleanup_status={cleanup_status}")
     if cleanup_status == "retained" and not str(record.get("retention_reason") or "").strip():
         reasons.append("retained_without_retention_reason")
+    if record.get("origin") == "created" and cleanup_status != "closed" and not str(record.get("nickname") or "").strip():
+        reasons.append("created_without_nickname")
     row["outstanding"] = bool(reasons)
     row["outstanding_reasons"] = reasons
     # A timestamp is only a requested check point; without a real scheduler
@@ -761,6 +865,36 @@ def report_records(
     }
 
 
+def pick_nickname(
+    occupied: Iterable[str] = (),
+    path: os.PathLike[str] | str | None = None,
+) -> dict[str, Any]:
+    """Choose one unused 4-6 character nickname from the 200-name library."""
+
+    occupied_keys: set[str] = set()
+    for item in occupied:
+        if isinstance(item, str) and item.strip():
+            occupied_keys.add(item.strip().casefold())
+    state_path = _state_path(path)
+    if os.path.lexists(state_path):
+        with _file_lock(state_path):
+            state = _read_state(state_path)
+        for record in state["records"].values():
+            if record.get("cleanup_status") == "closed":
+                continue
+            nickname = record.get("nickname")
+            if isinstance(nickname, str) and nickname.strip():
+                occupied_keys.add(nickname.strip().casefold())
+    available = [name for name in NICKNAMES if name.casefold() not in occupied_keys]
+    if not available:
+        _fail("no unused session nickname remains in the 200-name library")
+    return {
+        "nickname": secrets.choice(available),
+        "pool_size": len(NICKNAMES),
+        "available_count": len(available),
+    }
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -774,6 +908,7 @@ def _parser() -> argparse.ArgumentParser:
             "recovery_status=unknown|ready|degraded|not_applicable; "
             "coordinator_phase=active|finalizing|settled; monitor_status=unknown|running|stopped|failed."
             " monitor_mode=inline|background|none|unknown; only schedule_handle determines schedule_status."
+            " origin=created requires an explicit non-empty nickname (see pick-nickname and references/nicknames.md)."
             " owned_container may contain only non-empty-string-or-null tab_id, window_id, basis."
             " cleanup_authorization is an assertion only; retain->auto_owned requires a new value in that patch."
         ),
@@ -781,6 +916,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--path", type=Path, default=DEFAULT_STATE_PATH, help=f"state JSON path (default: {DEFAULT_STATE_PATH})")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    pick = commands.add_parser(
+        "pick-nickname",
+        help="select an unused 4-6 char nickname from the 200-word library",
+    )
+    pick.add_argument("--path", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    pick.add_argument(
+        "--occupied",
+        action="append",
+        default=[],
+        help="live session name/title from list_sessions to exclude (repeatable)",
+    )
 
     register = commands.add_parser("register", help="register a new session record")
     register.add_argument("--path", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
@@ -825,8 +972,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         state_path = args.path
-        if args.command == "register":
-            result: Any = register_record(_read_json_object(args.record, "record"), state_path)
+        if args.command == "pick-nickname":
+            result: Any = pick_nickname(args.occupied, state_path)
+        elif args.command == "register":
+            result = register_record(_read_json_object(args.record, "record"), state_path)
         elif args.command == "update":
             result = update_record(
                 args.session_id,

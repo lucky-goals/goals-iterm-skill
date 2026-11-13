@@ -8,6 +8,6 @@ labels: enhancement
 
 ## Proposed behavior
 
-## Host execution, runtime, and policy requirements
+## Host and MCP capabilities required
 
 ## How to verify success

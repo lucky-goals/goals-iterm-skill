@@ -1,4 +1,4 @@
 interface:
   display_name: "Goals iTerm Advisor"
-  short_description: "Coordinate Coding CLIs in iTerm with the bundled runner"
-  default_prompt: "Use $goals-iterm-skill to coordinate a Coding CLI in iTerm for this task through the bundled standalone runner: delegate project changes and tests to the CLI, keep the main assistant responsible for necessary read-only acceptance checks, decisions, and a private audit ledger, monitor inline with real waits by default, then finalize resources according to ownership and report results, retained resources or blockers, and ledger and recovery-record links."
+  short_description: "Delegate, monitor, and clean up Coding CLIs through iTerm MCP"
+  default_prompt: "Use $goals-iterm-skill to coordinate a Coding CLI in iTerm for this task: delegate project changes and tests to the CLI, keep the main assistant responsible for necessary read-only acceptance checks, decisions, and a private audit ledger, monitor inline with real waits by default, then finalize resources according to ownership and report results, retained resources or blockers, and ledger and recovery-record links."

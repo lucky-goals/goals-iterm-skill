@@ -1,28 +1,51 @@
 # goals-iterm-skill
 
-Skill バージョン：[v0.4.0-dev](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.4.0-dev)（プレリリース）
+Skill バージョン: [v0.3.3](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.3)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-この skill を使ってタスクを委任、引き継ぎ、または続行するとき、調整役の agent は root orchestrator として動作します。skill に同梱された standalone runner から iTerm2 上の Claude Code、Codex などの CLI に指示し、進捗を監視し、通常の判断を行い、完了を確認します。[実行境界](references/orchestrator.md)に従い、プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は terminal CLI 経由で行います。読み取り専用の Git 確認は直接行えます。root agent とネイティブ subagent はプロジェクトの文脈、完了条件、レビューを読み取り専用で扱います。公開には明示的な許可が必要です。
+この skill を使ってタスクを委任、引き継ぎ、または続行するとき、調整役の agent は root orchestrator として動作します。[goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 経由で iTerm2 上の Claude Code、Codex などの CLI に指示し、進捗を監視し、通常の判断を行い、完了を確認します。[実行境界](references/orchestrator.md)に従い、プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は terminal CLI 経由で行います。読み取り専用の Git 確認は直接行えます。root agent とネイティブ subagent はプロジェクトの文脈、完了条件、レビューを読み取り専用で扱います。公開には明示的な許可が必要です。
 
 現在の実行中に行うインライン監視が既定です。待機前に最新の証拠に基づく短い進捗をユーザーに伝え、段階の変化や問題を報告し、根拠のない進捗率や完了時刻は示しません。バックグラウンド監視は、ユーザーが明示的に依頼し、実際の宿主 wakeup/scheduler handle を確認できた場合だけ使います。[進捗報告の手順](references/monitoring.md#progress-narration-before-inline-waits)を参照してください。
 
-## ローカル runtime の前提条件
+## 必須の MCP：goals-iterm-mcp
 
-同梱 runner にはローカル macOS 実行環境、有効化/認可済みの iTerm2 Python API、Python 3.12 と skill が固定した最小依存関係が必要です。ローカル実行経路のないクラウド専用ホストから、この Mac の iTerm2 は操作できません。iTerm2 に対象 CLI をインストールして認証してください。認証情報をプロンプトに含めないでください。
+この skill は **[lucky-goals/goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp)**（iTerm2 Python API ベース）のみを経由して iTerm2 を操作します。独自の端末スクリプト、直接の `iterm2` Python スクリプト、AppleScript/`osascript`、宿主 shell などで代替せず、端末機能の拡張は `goals-iterm-mcp` 側で行います。まず**調整役の agent のクライアント**に MCP を導入して接続し、次にこの skill をインストールして、以下のタスク用プロンプトを使用してください。skill だけでは端末操作ツールは提供されません。MCP が接続済みなら、重複して導入せず接続を確認してください。
 
-インストール済み skill のディレクトリから runtime を確認または準備します：
+準備の順序：
 
-```sh
-scripts/bootstrap.sh --check
-scripts/bootstrap.sh --apply
-scripts/itermctl capabilities --json
-scripts/itermctl doctor --json --live-api-check
+1. 端末を実行する Mac に iTerm2 をインストールして起動し、**Settings → General → Magic → Python API** を有効にします。認可ダイアログが表示されたら接続を許可します。
+2. 調整役のクライアントに goals-iterm-mcp をローカル stdio サーバーとして設定します。クライアントはその Mac にアクセスできる必要があります。クラウドだけで動くチャットからローカル iTerm2 を直接操作することはできません。
+3. iTerm2 に Claude Code、Codex などの対象 CLI をインストールし、認証を済ませます。新しいタブでも正常に起動することを確認し、認証情報をプロンプトに含めないでください。
+4. MCP のツール検出と読み取り専用の `list_sessions` 呼び出しを確認してから、この skill をインストールします。作業の実行には入力用ツールが必要です。`--read-only` サーバーでは監視のみ可能です。
+
+詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.2.2` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
+
+```text
+この Mac 上で [対象クライアント] に goals-iterm-mcp を導入してください。
+リポジトリ：https://github.com/lucky-goals/goals-iterm-mcp
+
+1. プロジェクトのインストールガイドを読み、macOS、iTerm2、uv/uvx を確認してください。
+   uv がなければ、uv の公式手順に従ってインストールしてください。
+2. Python 3.12 でパッケージの起動を確認してください：
+   uvx --python 3.12 goals-iterm-mcp@0.2.2 --help
+3. クライアントの既存 MCP 設定をバックアップし、iterm という名前のローカル stdio
+   サーバーを追加または更新してください。無関係な設定は保持し、重複を避けてください：
+   command：この Mac の uvx の絶対パス
+   args：["--python", "3.12", "goals-iterm-mcp@0.2.2", "serve"]
+   対象クライアントが対応する設定形式と配置先を使用してください。
+4. 必要に応じて iTerm2 Python API の有効化と認可ダイアログの操作を案内してください。
+   対応する方法で MCP を再読み込みし、手動で再起動が必要なら手順を示してください。
+5. ハンドシェイク、ツール検出、list_sessions のみで接続を検証してください。
+   導入中は端末内容の読み取り、入力送信、ウィンドウの作成や終了、coding タスクの開始を
+   行わないでください。
+6. 設定の配置先、固定したバージョン、接続結果を報告してください。単体のサーバー接続と、
+   対象クライアントでのツール読み込みを区別し、問題があれば残りの手順を示してください。
+   準備ができたら、続く説明に従って skill をインストールしてください。
 ```
 
-この runtime に MCP サーバー、クライアント側の tool discovery、MCP 設定は不要です。固定 policy は `~/.local/state/goals-iterm-skill/policy.json` に保存され、ファイルがない場合は read-only です。書き込みには明示的な policy 設定が必要です。例：`scripts/itermctl policy configure --allow-writes --session-id SESSION_ID`。既存の read-only 設定や Session allowlist を黙って広げないでください。dispatcher 起動前の launcher 障害は stderr に診断を出し、非ゼロで終了して request を dispatch しません。JSON envelope と exit code 0/2/3/4 は dispatcher 起動後に適用されます。request/result、13 の操作、recovery receipt、policy の詳細は[runner contract](references/runtime.md)を参照してください。
+`serve` はクライアントが stdio 経由で起動する MCP サーバーの入口であり、coding CLI ではありません。MCP の導入では monitor の提供や対象 CLI の認証設定は行われません。
 
 ## coding agent にインストールを依頼する
 
@@ -36,30 +59,27 @@ goals-iterm-skill を [対象クライアント] にインストールしてく�
    公式の手順に従って配置先と適用範囲を決めてください。設定パスを推測しないでください。
 2. リポジトリを取得するか、私が指定したローカルディレクトリを使用してください。
    SKILL.md と参照先ファイルを確認してください。リポジトリのルートが skill パッケージです。
-3. goals-iterm-skill というディレクトリ名で、SKILL.md、references/、agents/、scripts/、runtime/ を
+3. goals-iterm-skill というディレクトリ名で、SKILL.md、references/、agents/、scripts/ を
    まとめて配置してください。SKILL.md だけをコピーしないでください。既存のインストールが
    ある場合は差分を確認し、ローカル変更を保持して更新前にバックアップしてください。
    他の skill は変更しないでください。
-4. ローカル macOS 実行環境、iTerm2 Python API、同梱 runtime を確認してください。
-   `scripts/bootstrap.sh --check` が runtime 未準備または不一致を示す場合は、この install 依頼の範囲内で
-   `scripts/bootstrap.sh --apply` を実行し、その後 `--check` を再実行してください。さらに
-   `scripts/itermctl capabilities --json` と `scripts/itermctl doctor --json --live-api-check` を使います。
-   live check は read-only の `list_sessions` だけを呼び出し、screen/history の本文は読みません。
-   許可ダイアログや手動設定が必要なら、正確な操作を報告し、回避しないでください。
-   クライアントの MCP 設定は変更しないでください。
+4. 対象クライアントが goals-iterm-mcp に接続済みか確認してください。skill のインストールに
+   MCP サーバーの導入は含まれません。未設定なら前提条件と設定手順を示し、無関係な
+   MCP 設定は変更しないでください。
 5. skill のメタデータと相対参照を検証してください。対応する方法で再読み込みし、手動操作が
    必要なら具体的な手順を示してください。確認可能なら、対象クライアントが実際に skill を
    認識したことも確認してください。
-6. インストール中は端末内容の読み取り、入力の送信、ウィンドウの作成、coding
-   タスクの開始を行わないでください。明示的な許可なしに書き込み policy を設定しないでください。
-7. 配置先、skill の認識状況、runtime の準備状況、policy 状態、利用可能な監視機能を報告してください。
+6. MCP が利用可能ならツールの検出を確認し、接続確認には list_sessions のみを使用して
+   ください。インストール中は端末内容の読み取り、入力の送信、ウィンドウの作成、coding
+   タスクの開始を行わないでください。
+7. 配置先、skill の認識状況、MCP の準備状況、利用可能な監視機能を報告してください。
    委任タスクは既定でインライン監視を使い、背景監視には明示的な依頼と実際の宿主機能が必要です。
    インストール自体では monitor を開始せず、実際の handle がなければ実行終了後の確認を約束しません。
 ```
 
 ## インストール済みの旧版を更新
 
-ユーザーが tag または commit を指定しない限り、`goals-iterm-skill` の最新版はリモートリポジトリのデフォルトブランチにある最新の公開コミットです。ローカルのソースだけを更新しても、コピーされたインストール先は更新されません。
+ユーザーが tag または commit を指定しない限り、`goals-iterm-skill` の最新版はリモートリポジトリのデフォルトブランチにある最新の公開コミットです。ローカルのソースだけを更新しても、コピーされたインストール先は更新されません。この skill は PyPI パッケージではなく、`goals-iterm-mcp` の PyPI パッケージを更新しても skill は更新されません。
 
 下のプロンプトをローカルファイルにアクセスできる coding agent に渡し、`[対象クライアント]` を置き換えてください。
 
@@ -72,20 +92,19 @@ goals-iterm-skill を [対象クライアント] にインストールしてく�
 2. 読み込まれているインストール全体とローカル変更を、発見した skill ディレクトリの外にある明確な場所へバックアップしてください。symlink の場合はリンクだけでなく実際のリンク先の内容をバックアップしてください。バックアップが二つ目の skill として検出されないようにし、監査/実行時状態と他の skill を保持してください。
 3. リモートから取得し、リモートリポジトリのデフォルトブランチにある最新コミットを解決してください。私が tag または commit を指定した場合だけそれを使い、デフォルトブランチが main だと決めつけないでください。対象 SHA を記録し、古い checkout や未コミット変更を upstream の最新版と説明しないでください。
 4. きれいな状態で意図したブランチを追跡している checkout だけは fast-forward で更新してください。dirty、分岐、detached、別ブランチの場合は reset、変更の破棄、強制切り替えを行わず、新しい upstream checkout と比較してローカル変更を保持・統合してください。統合できない競合は明確に報告してください。
-5. symlink なら実際のリンク先を更新してください。コピーしたインストールなら新しい完全な checkout と比較し、SKILL.md、references/、agents/、scripts/、runtime/ を含む package 全体を同期してください。SKILL.md だけをコピーしないでください。バックアップ後に削除するのは package 所有で古いと確認できたファイルだけにし、不明な追加ファイルは残してください。クライアント管理のインストールは対応する更新機能を使ってください。
+5. symlink なら実際のリンク先を更新してください。コピーしたインストールなら新しい完全な checkout と比較し、SKILL.md、references/、agents/、scripts/ を含む package 全体を同期してください。SKILL.md だけをコピーしないでください。バックアップ後に削除するのは package 所有で古いと確認できたファイルだけにし、不明な追加ファイルは残してください。クライアント管理のインストールは対応する更新機能を使ってください。
 6. skill の metadata、相対リンク、インストール内容が対象コミットに対応することを検証し、クライアントが対応する方法で再読み込みしてください。手動操作が必要なら正確な手順または新しい session が必要なことを示してください。クライアントが新しい revision とファイルを実際に認識したことを確認し、現在開いている chat が hot-reload されるとは説明しないでください。
-7. まず `scripts/bootstrap.sh --check` を実行し、未準備または不一致なら、この更新依頼の範囲で
-   `scripts/bootstrap.sh --apply` を実行して再確認してください。`scripts/itermctl capabilities --json` と `scripts/itermctl doctor --json` で同梱 runtime を確認してください。更新中に書き込み policy の設定や端末操作は行わないでください。
+7. MCP の接続とツール検出は別に確認してください。接続確認を行う場合も、読み取り専用の list_sessions だけを使ってください。更新中は端末内容の読み取り、入力送信、ウィンドウの作成や終了、タスクの開始を行わないでください。新しいツールがなければ、MCP の別途アップグレードまたは再読み込みが必要だと報告し、MCP の固定や無関係な設定を自動変更しないでください。
 8. インストール先と適用範囲、方式、バックアップ先、更新前後の ref/commit SHA、ローカル変更、検証と再読み込みの結果、ローカル変更を保持した rollback 方法を報告してください。
 ```
 
-手動 fallback：意図したブランチを追跡するきれいな checkout では、対象 ref を確認してから `git fetch <remote>` と `git pull --ff-only` を実行してください。それ以外の状態では新しい checkout と比較します。コピーしたインストールは一時ディレクトリで対象コミットを取得し、新しい checkout と比較、バックアップ後に package 全体を同期し、古い package ファイルを確認してからクライアントの方法で再読み込みします。symlink は実際のリンク先を更新します。rollback では更新後に追加されたローカル変更を保持してバックアップを復元してから再読み込みしてください。可変 runtime 環境、監査/復旧状態は skill ディレクトリ外に保持してください。
+手動 fallback：意図したブランチを追跡するきれいな checkout では、対象 ref を確認してから `git fetch <remote>` と `git pull --ff-only` を実行してください。それ以外の状態では新しい checkout と比較します。コピーしたインストールは一時ディレクトリで対象コミットを取得し、新しい checkout と比較、バックアップ後に package 全体を同期し、古い package ファイルを確認してからクライアントの方法で再読み込みします。symlink は実際のリンク先を更新します。rollback では更新後に追加されたローカル変更を保持してバックアップを復元してから再読み込みし、skill の rollback で MCP や既に実行した端末タスクを戻せないことも報告してください。
 
 ## 前提条件と手動インストール
 
-リポジトリのルートが skill パッケージです。宿主クライアントの対応する方法で、ディレクトリ全体を `goals-iterm-skill` としてインストールしてください。相対参照を維持するため、`SKILL.md`、`references/`、`agents/`、`scripts/`、`runtime/` を一緒に配置します。`scripts/` にはランチャーとローカルセッションレジストリで使う標準ライブラリの補助スクリプトが含まれます。配置先と再読み込み方法は、対象クライアントのドキュメントおよび既存設定に従ってください。
+リポジトリのルートが skill パッケージです。宿主クライアントの対応する方法で、ディレクトリ全体を `goals-iterm-skill` としてインストールしてください。相対参照を維持するため、`SKILL.md`、`references/`、`agents/`、`scripts/` を一緒に配置します。`scripts/` にはローカルセッションレジストリで使う標準ライブラリの補助スクリプトが含まれます。配置先と再読み込み方法は、対象クライアントのドキュメントおよび既存設定に従ってください。
 
-iTerm2 Python API を有効化・認可し、対象端末で CLI と認証を準備してから同梱 runner で iTerm を操作します。ローカル Python 3.12 とロック済みの最小依存関係が必要です。runner は agent scheduler やバックグラウンドサービスを提供しません。
+この skill は MCP のインストールや独立したバックグラウンドサービスを提供しません。宿主で goals-iterm-mcp に接続し、iTerm2 Python API を有効にして、対象端末で CLI と認証を準備してください。セッション一覧、画面/履歴の読み取り、テキスト/キー送信のツールが必要です。新しい端末の作成には対応する作成ツールも必要です。
 
 現在の実行中に行うインラインのポーリング監視が既定です。実際に割り込み可能な host sleep を使い、指示送信後は 10〜15 秒、その後は確認の間隔を 30〜60 秒にします（1 回の sleep は 60 秒以下）。1 つの複数セッション用ループですべての期限到来/実行可能なセッションを確認し、次の確認時刻が最も近いものを 1 回待ちます。既定ではバックグラウンド monitor を開始しません。現在の実行後も監視を続けるには、ユーザーの明示的な依頼と、実際の宿主 scheduler/wakeup handle の確認が必要です。
 
@@ -95,23 +114,30 @@ iTerm2 Python API を有効化・認可し、対象端末で CLI と認証を準
 
 ### セッションのライフサイクルと永続的な調整状態
 
-新しい CLI 作業を開始または引き継ぐ前に、[セッション・ライフサイクルガイド](references/session-lifecycle.md)に従ってください。新しい CLI プロセスまたはセッションを起動する前に、同梱 runner が報告する操作と準備状態を確認します。CLI の起動後、作業を送る前に、会話の永続化状態と現在の Session/Tab/Window の識別情報を確認してください。transcript または履歴が無効になっている場合は、その CLI が対応し、検証済みの起動方法で修正してから新しい作業を送ります。設定を変更するためだけに、すでに動作中のセッションを再起動してはいけません。CLI の識別情報や復旧レシートだけでは、履歴が永続化され再開できる証拠になりません。復旧状態が不明な場合は制限を記録し、正常終了の条件を別に確認してください。復旧情報の不足だけで手動回収が必須とは判断しません。
+新しい CLI 作業を開始または引き継ぐ前に、[セッション・ライフサイクルガイド](references/session-lifecycle.md)に従ってください。新しい CLI プロセスまたはセッションを起動する前に、インストール済み MCP が実際に提供するクリーンアップと復旧の機能を確認します。CLI の起動後、作業を送る前に、会話の永続化状態と現在の Session/Tab/Window の識別情報を確認してください。transcript または履歴が無効になっている場合は、その CLI が対応し、検証済みの起動方法で修正してから新しい作業を送ります。設定を変更するためだけに、すでに動作中のセッションを再起動してはいけません。CLI の識別情報や復旧レシートだけでは、履歴が永続化され再開できる証拠になりません。復旧状態が不明な場合は制限を記録し、正常終了の条件を別に確認してください。復旧情報の不足だけで手動回収が必須とは判断しません。
 
-調整役は `~/.local/state/goals-iterm-skill/session-registry.json` に永続的なローカルレジストリを保持します。パッケージに含まれる標準ライブラリだけの補助スクリプト `scripts/session_registry.py` を使い、lock、revision、generation のガードを適用してください。レジストリはホスト側の観測であり、権限や端末ロックではありません。runner は固定 policy と操作直前の確認を適用します。任意の `monitor_mode` は `inline`、`background`、`none`、`unknown` のいずれかです。古いレコードにこの項目がない場合は `unknown` とします。実際の宿主 handle がある場合だけ `schedule_status` を `scheduled` にできます。inline は通常、未スケジュールであり、調整役の申告を記録するもので、稼働を保証しません。タスクをまたぐ handoff/再利用、またはセッションの識別情報/トポロジーの変更は古い完了状態を無効にします。同じタスク内で調整役だけを引き継ぐ場合は、記録済みの業務・クリーンアップの事実（unknown の結果を含む）を保持し、generation ガードによって古い書き込みだけを防ぎます。CLI のチャット名を変更しても、新しい識別情報にはなりません。セッション単位のタスクが受け入れられたら `finalizing` に移し、業務上の書き込みを行う monitor は停止しますが、現在の実行中は認可されたクリーンアップを、読み取り、sleep、範囲を限定した再確認で続けます。各所有リソースが実際に `closed`、明示的な `retained`、または実行可能な処置を伴う `blocked` になるまで続けてください。unknown の結果は可視のまま保持し、変更する前に読み取り専用で照合します。現在の実行後に確認するには、ユーザーが明示的に依頼し、実際の宿主 handle が必要です。消費者が不要になった子タスクは、独立して受け入れまたは回収できます。
+調整役は `~/.local/state/goals-iterm-skill/session-registry.json` に永続的なローカルレジストリを保持します。パッケージに含まれる標準ライブラリだけの補助スクリプト `scripts/session_registry.py` を使い、lock、revision、generation のガードを適用してください。レジストリの記録はホスト側の観測であり、MCP の権威でも、実際の端末に対するロックでもありません。任意の `monitor_mode` は `inline`、`background`、`none`、`unknown` のいずれかです。古いレコードにこの項目がない場合は `unknown` とします。実際の宿主 handle がある場合だけ `schedule_status` を `scheduled` にできます。inline は通常、未スケジュールであり、調整役の申告を記録するもので、稼働を保証しません。タスクをまたぐ handoff/再利用、またはセッションの識別情報/トポロジーの変更は古い完了状態を無効にします。同じタスク内で調整役だけを引き継ぐ場合は、記録済みの業務・クリーンアップの事実（unknown の結果を含む）を保持し、generation ガードによって古い書き込みだけを防ぎます。CLI のチャット名を変更しても、新しい識別情報にはなりません。セッション単位のタスクが受け入れられたら `finalizing` に移し、業務上の書き込みを行う monitor は停止しますが、現在の実行中は認可されたクリーンアップを、読み取り、sleep、範囲を限定した再確認で続けます。各所有リソースが実際に `closed`、明示的な `retained`、または実行可能な処置を伴う `blocked` になるまで続けてください。unknown の結果は可視のまま保持し、変更する前に読み取り専用で照合します。現在の実行後に確認するには、ユーザーが明示的に依頼し、実際の宿主 handle が必要です。消費者が不要になった子タスクは、独立して受け入れまたは回収できます。
 
 業務 monitor が停止した後も、認可されたクリーンアップ再確認は現在の実行中に範囲を限定して行えます。現在の実行後に確認するには、ユーザーの明示的な依頼と実際の宿主 scheduler/wakeup handle が必要です。書き込み結果が不明なときは、読み取り専用の観測でのみ照合してください。既定で `force` やグローバルな一括処理を行ってはいけません。最終報告には、リソース集計の合計と理由、復旧の証拠、残っているフォローアップを含めます。
 
 ## 明示的なセッションのクリーンアップ
 
-同梱 runner は `close_session`、`close_tab`、`close_window`、`clean_all_sessions` を提供します。`capabilities --json` で schema を確認し、`list_sessions` の正確な ID を使います。既存リソースへの変更には最新の `list_sessions.data.observation` が必要です。コンテナ閉鎖時は全メンバーを検証し、範囲外または busy/unknown のメンバーがあれば全体を拒否します。dry run は読み取り専用で、close receipt を保存しません。
+現在の MCP ソースは 4 つのクリーンアップツールを実装しています。インストール済みサーバーが対応する schema を公開している場合だけ使用してください。実行時はインストール済みツールの schema が優先されます。この節は現在の実装を説明するもので、パッケージのリリースやバージョン変更を示すものではありません。
 
-`clean_all_sessions` は固定 policy の範囲内の全体クリーンアップです。ユーザーが設定済み範囲全体を認可し、policy が書き込みを許可し、request 最上位に `authorization_scope: "all_sessions"` がある場合に限ります。allowlist はアクセスを制限しますが、所有権や認可を付与しません。`force=true` でも policy、identity、receipt、unknown outcome の保護を迂回できません。
+- `close_session(session_id OR nickname, force=false, dry_run=false)` は 1 つのセッションを閉じます。
+- `close_tab(tab_id OR session_id OR nickname, force=false, dry_run=false)` は 1 つのタブを閉じます。
+- `close_window(window_id OR session_id OR nickname, force=false, dry_run=false)` は 1 つのウィンドウを閉じます。
+- `clean_all_sessions(force=false, dry_run=false)` はサーバーが許可する範囲のセッションをクリーンアップします。
 
-中断/終了/close の前に runtime は private recovery receipt を保存します。初期 receipt の保存に失敗すれば terminal 書き込みを停止し、後続更新の失敗は副作用後の可能性があるため各 Session の結果を確認します。結果は request ID、status、code、data、warnings、side_effects を含みます。不明な mutation は正確な request ID と state location を確認してから `operation-status --request-id ID` と新しい読み取りで照合し、再実行しません。`data: null` は現在の state location に記録がないことを示すだけで、書き込みが行われなかった証拠ではありません。詳細は [runtime.md](references/runtime.md) と [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。
+最初の 3 つのツールには 1 つだけセレクターを指定します。ID は完全一致で扱います。ニックネームは前後の空白を取り除き、大文字小文字を折りたたんだ上で、1 つの Session に完全一致させます。タブ/ウィンドウのツールでは、その Session を含むコンテナを選び、ニックネームを Tab として直接扱いません。複数候補に一致する場合は拒否します。既定では `clean_all_sessions` はアイドル状態だと確認できたセッションだけを閉じ、実行中、待機中、不明、または安全性を確認できないセッションはスキップします。「不要」や有用性を推測せず、調整役の agent は要求された保持方針と認可範囲を守る必要があります。`force=true` では初期の認可範囲にあるすべてのセッション（実行中を含む）を試みますが、ID、権限、対象変更、復旧の安全確認は省略しません。通常の close は、影響を受けるセッション/タブ/ウィンドウの事前確認で実行中または不明なセッションが見つかると、force が認可されていない限り全体を拒否します。
+
+MCP 終了ツールの経路では、中断、CLI の終了、またはネイティブなクローズの前に、サービスは必ず対象と、取得できた CLI/chat UUID、cwd、再開メタデータを含むプライベートな復旧レシートを永続化します。最初のレシート保存に失敗した場合は、端末への書き込み前に停止します。後続のレシート更新は操作後に失敗する場合があるため、各セッションの結果を確認してください。その後、時間制限付きの SIGINT/SIGTERM で CLI の終了を要求し、終了を確認してから対象を閉じます。`dry_run=true` は完全な読み取り専用です。端末入力、復旧レシートの保存、名前変更、中断、クローズは行いません。
+
+各セッション結果は公開フィールド `interruption`、`exit`、`closure_status`、`cli_sessions` を使用します。チャット記録には `cli`、`chat_uuid`、`cwd`、識別情報の取得元、永続化状態、再開データが含まれる場合があります。レシートがある場合、操作は `recovery_record_id` と `recovery_record_path` を返します。CLI 履歴の `persistence_status` が空または不明でも、それだけで阻害要因にはなりません。UUID の識別情報と復旧レシートの安全保護は、履歴が実際に永続化され再開できるかどうかとは別です。ID だけで再開を保証しません。MCP の応答が `isError=true` でも、`status` と `closed_sessions`、`skipped_sessions`、`failed_sessions`、`unknown_sessions` の配列を読み取ってください。
 
 ### タスク所有リソースの自動回収
 
-起動確認だけのテストを含め、新規のタスク専用セッションは既定で `auto_owned` とします。起動の依頼だけでは保持の指定にならず、明示的な保持要求は出典を記録します。確認済みの `/quit`、`/exit` または終了キーで CLI を終了した後、アイドル状態を確認した shell には、既存の回収認可に基づいて runner 経由で `exit` を送信でき、再承認は不要です。shell の `exit` にスラッシュは付けません。元の Session/Tab の消失を確認し、残る場合はguarded runtime close 経路を使います。活動診断が不完全でも、件数だけでアイドルとは判断しません。不明なジョブ、範囲制限、書き込み結果が不明な場合は自動終了を止めます。
+起動確認だけのテストを含め、新規のタスク専用セッションは既定で `auto_owned` とします。起動の依頼だけでは保持の指定にならず、明示的な保持要求は出典を記録します。確認済みの `/quit`、`/exit` または終了キーで CLI を終了した後、アイドル状態を確認した shell には、既存の回収認可に基づいて MCP 経由で `exit` を送信でき、再承認は不要です。shell の `exit` にスラッシュは付けません。元の Session/Tab の消失を確認し、残る場合は通常の MCP クローズ経路を使います。活動診断が不完全でも、件数だけでアイドルとは判断しません。不明なジョブ、範囲制限、書き込み結果が不明な場合は自動終了を止めます。
 
 受け入れ条件を確認し、業務 monitor を停止した後は、[正常終了プロトコル](references/natural-exit.md)でタスク専用リソースを回収します。既知の復旧情報を保存し、検証済みの CLI 終了コマンドを一度だけ送信し、終了を確認してから残った shell を閉じます。chat UUID の欠落だけでは正常終了を妨げません。ただし、ユーザーが再開可能であることを終了条件にした場合はその指定を優先します。CLI の完了宣言だけで受け入れ済みとは判断せず、借用中または保持指定されたリソースは既存の認可に従って保持します。
 
@@ -119,7 +145,7 @@ iTerm2 Python API を有効化・認可し、対象端末で CLI と認証を準
 
 正常終了後に構成を再確認し、残った正確な対象を `dry_run=true` で確認してから `force=false` で閉じます。タスクの回収にグローバルな `clean_all_sessions` は使いません。実際の実行中タスク、所有権やプロセスの不明点、識別情報の競合、権限制限、初期レシートの失敗、結果不明の書き込みは引き続き確認が必要です。活動情報の取得機能がない場合は正常終了プロトコルの独立した証拠を確認し、自動で force にしません。終了コマンドの送信結果が不明なら再送しません。CLI 終了、端末の消失、会話の再開可能性を別々に確認し、後から作った shell の終了レシートを元の会話の復旧証拠とみなしません。
 
-業務上の完了とクリーンアップ結果を分けて扱います。監査記録には各セッションの CLI/chat UUID、cwd、再開メタデータ、復旧レシート、クリーンアップ結果を書き込みます。paused、failed、canceled のタスクは自動回収しません。既存の監視・監査ワークフローはそのまま適用され、同梱 runtime contract が引数と結果の基準です。借用リソース、グローバルなクリーンアップ、force によるクリーンアップには引き続き明示的な認可が必要です。既存の認可を再利用し、繰り返し承認を求めません。`clean_all_sessions` は無関係なタスクにも影響し得るため、ユーザーの許可が policy の全設定範囲を含み、request に `authorization_scope: "all_sessions"` がある場合のみ呼び出してください。詳細な手順は[自動回収・復旧ガイド](references/automatic-cleanup.md)と[終了・復旧ガイド](references/closing-and-recovery.md)を参照してください。
+業務上の完了とクリーンアップ結果を分けて扱います。監査記録には各セッションの CLI/chat UUID、cwd、再開メタデータ、復旧レシート、クリーンアップ結果を書き込みます。paused、failed、canceled のタスクは自動回収しません。既存の監視・監査ワークフローはそのまま適用され、実際にインストールされたツールの schema が実行時の基準です。借用リソース、グローバルなクリーンアップ、force によるクリーンアップには引き続き明示的な認可が必要です。既存の認可を再利用し、繰り返し承認を求めません。`clean_all_sessions` は無関係なタスクにも影響し得るため、許可された範囲がサーバーの範囲（設定された allowlist を含む）と一致する場合だけ呼び出してください。詳細な手順は[自動回収・復旧ガイド](references/automatic-cleanup.md)と[終了・復旧ガイド](references/closing-and-recovery.md)を参照してください。
 
 ## 使用例
 
@@ -145,7 +171,7 @@ Goal はユーザーが明示的に依頼し、宿主が対応している場合
 
 ```text
 Codex Goal を作成して開始してください。$goals-iterm-skill を使い、
-同梱 runner 経由で iTerm 内の Coding CLI に継続して指示し、以下のタスクが
+iTerm MCP 経由で端末内の Coding CLI に継続して指示し、以下のタスクが
 完了条件を満たすまで進めてください。
 
 プロジェクトディレクトリ：[絶対パス]
@@ -164,7 +190,7 @@ Codex Goal を作成して開始してください。$goals-iterm-skill を使�
 - 実行と並行して Markdown 監査台帳を維持してください。指示、CLI の応答と判断待ち事項、
   判断とその根拠、実際の操作と結果を、時刻、外側/CLI ラウンド、関連イベント番号とともに
   記録してください。開始時に保存先を示し、最終報告に台帳のリンクを付けてください。
-- root orchestrator として動作してください。プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は同梱 runner 経由で対象 CLI に行わせ、読み取り専用の Git 確認だけは直接行えます。root/native agent は文脈、完了条件、レビューを読み取り専用で扱います。公開には私の明示的な許可が必要です。クリーンアップのみの依頼では CLI や監視ループを開始せず、復旧のみの依頼ではライフサイクル上必要な場合だけ CLI を起動/再開し、追加の業務作業や監視ループは行いません。
+- root orchestrator として動作してください。プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は対象 CLI に MCP 経由で行わせ、読み取り専用の Git 確認だけは直接行えます。root/native agent は文脈、完了条件、レビューを読み取り専用で扱います。公開には私の明示的な許可が必要です。クリーンアップのみの依頼では CLI や監視ループを開始せず、復旧のみの依頼ではライフサイクル上必要な場合だけ CLI を起動/再開し、追加の業務作業や監視ループは行いません。
 - 最初にセッションの状態を確認してください。タスクが既に実行中なら、重複して指示せず
   監視を引き継いでください。
 - 既定では現在の実行中にインラインで監視してください。実際に割り込み可能な host sleep を使い、指示送信後は 10〜15 秒、その後は各確認の間を 30〜60 秒にし、各 sleep は 60 秒以下にします。1 つのループですべての期限到来/実行可能なセッションを確認し、次の確認時刻が最も近いものを 1 回待ちます。既定ではバックグラウンド monitor を開始しません。
@@ -207,7 +233,7 @@ Codex Goal を作成して開始してください。$goals-iterm-skill を使�
 
 ## 保守と検証
 
-入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。スキルの指示ファイルは英語で統一し、多言語 README は維持しています。上流ソースとライセンスは [runtime/UPSTREAM.md](runtime/UPSTREAM.md) を参照してください。
+入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。スキルの指示ファイルは英語で統一し、多言語 README は維持しています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
 
 変更後は skill の frontmatter と相対リンクを検証し、監視プロトコル末尾のシナリオを確認してください。実際の CLI 検証には専用のテストセッションを使い、指示の送信、判断、復旧、監視の終了処理を確認します。静的検証だけでは、バックグラウンドのスケジューリングや実際の CLI 連携が動作することは保証されません。
 

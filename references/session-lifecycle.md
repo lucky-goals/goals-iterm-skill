@@ -1,16 +1,16 @@
 # Session registry, startup checks, and finalization responsibility
 
-Read this protocol when creating, taking over, reusing, or completing sessions. The bundled runner performs terminal operations. Registry files describe host-observed facts; they do not authorize closure or replace a fresh runner preflight.
+Read this protocol when creating, taking over, reusing, or completing sessions. MCP still performs terminal operations. Registry files describe host-observed facts; they do not authorize closure or replace MCP's live preflight.
 
 ## Check recovery and finalization capabilities first
 
-Before creation, read the [runner contract](runtime.md), inspect `capabilities --json` and `doctor --json`, and confirm the installed fixed policy and actual host monitoring capabilities. Record observed runtime/CLI/Skill versions. Prefer the runner's read-only `inspect_sessions` diagnostics; if unavailable, use a closing dry run with `dry_run=true, force=false` on the exact Session. Never use global cleanup as a task probe or invent preflight results for an uncreated target.
+Before creation, check closing/diagnostic tools, current client permissions, and actual monitoring capabilities. Record observed MCP/CLI/Skill versions. Prefer the installed service's read-only `inspect_sessions` diagnostics (see [tool conventions](iterm-tools.md)); if unavailable, use a closing dry run with `dry_run=true, force=false` on the exact Session. Never use global cleanup as a task probe or invent preflight results for an uncreated target.
 
 After a new CLI starts and before dispatching work, check:
 
 - Whether launch settings permit conversation history persistence. If the interface explicitly says transcript saving is off, fix the new launch using that CLI's local help before dispatching. Do not indiscriminately delete environment variables or use unverified flags. Keep existing active sessions running, record limitations, and wait for an appropriate handoff point.
 - Whether current conversation UUID evidence is bound to the actual process instance. Distinguish current evidence, startup-only arguments, and unknown. An empty new conversation may have no UUID before its first response; record unknown and recheck after a real response. Do not invent work or probe a busy CLI just to obtain one.
-- Whether the runtime can establish activity, persist a recovery receipt, and verify exit safely. A live process, running shell command, CLI awaiting input, and business acceptance are four different facts.
+- Whether MCP can establish activity, persist a recovery receipt, and exit safely. A live process, running shell command, CLI awaiting input, and business acceptance are four different facts.
 
 Also verify the normal-exit command supported by this CLI version. Record insufficient recovery evidence as `recovery_status=degraded/unknown` with a reason, separating chat recovery from resource cleanup. Evaluate [normal exit](natural-exit.md); missing UUID alone does not justify promising manual cleanup or declaring cleanup impossible. Unknown capability does not automatically cancel authorized work, but explicitly disabled history saving is not a valid default for new work. Address known blockers early rather than discovering all of them at exit.
 
@@ -20,9 +20,9 @@ Also verify the normal-exit command supported by this CLI version. Record insuff
 
 Coordinators on the same machine share the registry, by default `~/.local/state/goals-iterm-skill/session-registry.json`. Update it with the bundled `scripts/session_registry.py`; inspect its `--help` for actual arguments. It uses the Python standard library and needs no service installation. Store runtime state privately, outside repositories and skill installation directories.
 
-Each entry needs the exact Session ID, owner_task_id, coordinator_id, generation, current revision, origin, retention policy, and absolute audit path. Routine work uses inline rechecks in the current execution with `monitor_mode=inline`. Use `background` only when explicitly authorized and supported by real scheduling. `none` means no monitor; absent legacy fields mean `unknown`. The mode describes where checks are planned, not whether monitoring is alive; `monitor_status` is an independent state assertion. Add evidence-backed `owned_container` (only tab_id/window_id/basis), cleanup_authorization, Tab/Window IDs, session/broker epochs, process instance, CLI/chat UUID, activity/recovery state, acceptance basis, monitor status, cleanup reasons, and pending work. A nickname, directory, or PID alone is not an identity.
+Each entry needs the exact Session ID, owner_task_id, coordinator_id, generation, current revision, origin, retention policy, and absolute audit path, **plus an explicit non-empty `nickname` whenever `origin="created"`** (selected from the 200-entry 4–6 character [nickname library](nicknames.md) or requested by the user; nameless or fallback `session-<id>` created sessions are rejected). Routine work uses inline rechecks in the current execution with `monitor_mode=inline`. Use `background` only when explicitly authorized and supported by real scheduling. `none` means no monitor; absent legacy fields mean `unknown`. The mode describes where checks are planned, not whether monitoring is alive; `monitor_status` is an independent state assertion. Add evidence-backed `owned_container` (only tab_id/window_id/basis), cleanup_authorization, Tab/Window IDs, session/broker epochs, process instance, CLI/chat UUID, activity/recovery state, acceptance basis, monitor status, cleanup reasons, and pending work. A nickname, directory, or PID alone is not an identity.
 
-- Register immediately after successful creation. If registration fails, do not dispatch new work. For legacy sessions, use created/adopted only with origin evidence; otherwise mark unknown and retain.
+- Before creating a Session, select an unused nickname from [nicknames.md](nicknames.md) (or via `session_registry.py pick-nickname --occupied ...`), pass `name` explicitly on `create_window`/`create_tab` (or call `rename_session` immediately on older MCP servers), verify the name in `list_sessions`, and register immediately after successful creation. If naming or registration fails, do not dispatch new work. For legacy sessions, use created/adopted only with origin evidence; otherwise mark unknown and retain.
 - A new ledger's `audit_path` points to its stable index, normally `audits/<task-id>/index.md`. Locate daily event files through that index and host checkpoints. Date rollover does not change generation or require daily audit_path updates. Continue legacy single-file ledgers under the [audit protocol](audit.md#daily-files-and-date-rollover), updating audit_path normally without a schema change.
 - Synchronize delivery outcomes, acceptance, reuse, Tab moves, CLI replacement, closing preflight, and actual results with the registry and append events under the [audit protocol](audit.md).
 - Updates carry coordinator_id, generation, and expected_revision. File locking protects registry writes. On a version conflict, reread and investigate the live state; do not force a stale patch.
@@ -32,6 +32,7 @@ Each entry needs the exact Session ID, owner_task_id, coordinator_id, generation
 Common commands follow. Replace `/absolute/path/to/skill` and example IDs/generations with real values; record/patch files contain only observed, redacted fields:
 
 ```sh
+python3 /absolute/path/to/skill/scripts/session_registry.py pick-nickname --occupied amber --occupied cedar
 python3 /absolute/path/to/skill/scripts/session_registry.py register --record /private/path/record.json
 python3 /absolute/path/to/skill/scripts/session_registry.py list --task-id task-1
 python3 /absolute/path/to/skill/scripts/session_registry.py update --session-id S1 --coordinator-id C1 --generation 1 --expected-revision 1 --patch /private/path/patch.json
@@ -39,17 +40,17 @@ python3 /absolute/path/to/skill/scripts/session_registry.py handoff --session-id
 python3 /absolute/path/to/skill/scripts/session_registry.py report --task-id task-2 --require-settled
 ```
 
-Minimal register structure; this illustrates format, not real authorization or targets:
+Minimal register structure for a skill-created session; this illustrates format, not real authorization or targets:
 
 ```json
-{"session_id":"S1","owner_task_id":"task-1","coordinator_id":"C1","origin":"created","cleanup_policy":"auto_owned","audit_path":"/private/path/task-1.md","monitor_mode":"inline"}
+{"session_id":"S1","nickname":"ember","owner_task_id":"task-1","coordinator_id":"C1","origin":"created","cleanup_policy":"auto_owned","audit_path":"/private/path/task-1.md","monitor_mode":"inline"}
 ```
 
 Registry schema remains v1. Legacy v1 entries without `monitor_mode` read as `unknown`; do not erase/reset other fields. Same-task handoff sets mode unknown and preserves old real `schedule_handle`/`next_check_at` for the next coordinator to verify or disable. Cross-task handoff and identity-generation changes invalidate the old mode. Older installed registry scripts reject new fields; upgrade the coordinator's helper before writing `monitor_mode`.
 
 Generation identifies an identity/handoff epoch. Ordinary dispatch, observations, and finalizing updates increase revision, not generation; do not hand off merely to stop monitoring. Old callbacks check both values and cannot dispatch business work during finalizing. Reconcile closing/unknown read-only and record the result before changing tasks or identity. Use returned revision/generation values, not mechanically reused examples. Identity/topology updates invalidate old completion/recovery eligibility; observe the live state again before restoring completed status. Cross-task handoff resets ownership to borrowed/retain and clears old authorization. If the new task already has explicit cleanup permission, a separate version-checked update must set both `cleanup_policy=auto_owned` and nonempty `cleanup_authorization` identifying its source; registry entries do not grant permission. Same-task handoff resets monitor status/mode to unknown and retains old schedule_handle/next_check_at for verification or disabling; a retained handle does not prove liveness. Time fields use UTC ISO 8601. A next_check_at alone is not scheduling; a real schedule_handle is required. `report` shows `monitor_mode` and `schedule_status`; inline never masquerades as scheduled. Only a real nonempty handle yields `schedule_status=scheduled`. `report --require-settled` returns nonzero for unsettled resources or zero matches; an empty report is not success.
 
-The registry helper does not contact iTerm, send keys, exit CLIs, create background jobs, or prevent uncoordinated user/client input. Before terminal writes, still verify the latest registry and live state, and include the fresh `list_sessions.data.observation` for mutations on existing resources. Recorded state is neither a terminal lock nor authorization.
+The registry helper does not contact iTerm, send keys, exit CLIs, create background jobs, or prevent uncoordinated user/client input. Before terminal writes, still verify the latest registry and live state. Recorded state is neither a terminal lock nor authorization.
 
 ## Business completion still requires finalization
 
@@ -86,7 +87,7 @@ Every resource needs an explicit disposition before coordination ends. A real bl
 
 ## Design tradeoffs
 
-Markdown rules alone cannot detect an old coordinator overwriting a new task. A persistent cleanup daemon would add permissions and deployment burden. The lightweight registry therefore uses file locks and version checks, while Markdown retains human-readable process evidence and the runner enforces its fixed local policy and fresh-operation checks. It targets a small number of concurrent local terminals. Use separate state directories across machines and explicit handoffs; local file locks are not distributed locks.
+Markdown rules alone cannot detect an old coordinator overwriting a new task. A persistent cleanup daemon would add permissions and deployment burden. The lightweight registry therefore uses file locks and version checks, while Markdown retains human-readable process evidence and MCP protects actual operations. It targets a small number of concurrent local terminals. Use separate state directories across machines and explicit handoffs; local file locks are not distributed locks.
 
 ## Focused behavioral validation
 

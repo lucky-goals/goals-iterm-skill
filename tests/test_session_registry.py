@@ -20,6 +20,7 @@ from scripts import session_registry as registry
 def _record(session_id: str = "S1", task_id: str = "T1", coordinator_id: str = "C1") -> dict:
     return {
         "session_id": session_id,
+        "nickname": f"nick-{session_id.lower()}",
         "owner_task_id": task_id,
         "coordinator_id": coordinator_id,
         "origin": "created",
@@ -39,29 +40,47 @@ def _thread_update(path: str, barrier: threading.Barrier, result: list[tuple[str
 
 
 class SessionRegistryTests(unittest.TestCase):
-    def test_xdg_default_matches_runtime_ownership_checks(self) -> None:
+    def test_xdg_state_home_default_and_relative_rejection(self) -> None:
         root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as temporary:
-            environment = dict(os.environ, XDG_STATE_HOME=temporary,
-                               PYTHONPATH=os.pathsep.join((str(root), str(root / "runtime"))))
+            environment = dict(os.environ, XDG_STATE_HOME=temporary, PYTHONPATH=str(root))
             code = """
 import json
 from scripts import session_registry as registry
-from goals_iterm.policy import check_task_context, TaskContextError
 record = json.loads(__import__('sys').argv[1])
-registry.register_record(record)
-try:
-    check_task_context(None, [record['session_id']])
-except TaskContextError as error:
-    assert error.code == 'TASK_CONTEXT_REQUIRED'
-else:
-    raise AssertionError('runner missed registered Session in XDG state')
-check_task_context({'task_id':'T1','coordinator_id':'C1','generation':1,'expected_revision':1}, ['S1'])
+created = registry.register_record(record)
+assert created['session_id'] == record['session_id']
 """
-            completed = subprocess.run([sys.executable, "-c", code, json.dumps(_record())],
-                                       env=environment, capture_output=True, text=True, timeout=10)
+            completed = subprocess.run(
+                [sys.executable, "-c", code, json.dumps(_record())],
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertTrue((Path(temporary) / "goals-iterm-skill" / "session-registry.json").is_file())
+
+            relative_env = dict(os.environ, XDG_STATE_HOME="relative/state", PYTHONPATH=str(root))
+            relative_code = """
+import json
+from scripts import session_registry as registry
+record = json.loads(__import__('sys').argv[1])
+try:
+    registry.register_record(record)
+except registry.RegistryError as error:
+    assert 'XDG_STATE_HOME must be an absolute path' in str(error), str(error)
+else:
+    raise AssertionError('expected RegistryError for relative XDG_STATE_HOME')
+"""
+            rejected = subprocess.run(
+                [sys.executable, "-c", relative_code, json.dumps(_record())],
+                env=relative_env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(rejected.returncode, 0, rejected.stderr)
 
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -71,7 +90,8 @@ check_task_context({'task_id':'T1','coordinator_id':'C1','generation':1,'expecte
         self.tempdir.cleanup()
 
     def register(self, **overrides: object) -> dict:
-        record = _record()
+        session_id = str(overrides.get("session_id", "S1"))
+        record = _record(session_id=session_id)
         if "task_id" in overrides:
             overrides["owner_task_id"] = overrides.pop("task_id")
         record.update(overrides)
@@ -523,6 +543,89 @@ check_task_context({'task_id':'T1','coordinator_id':'C1','generation':1,'expecte
         self.assertEqual(raised.exception.code, 0)
         self.assertIn("coordinator_phase=active|finalizing|settled", help_output.getvalue())
         self.assertIn("monitor_mode=inline|background|none|unknown", help_output.getvalue())
+
+    def test_nickname_catalogue_and_pick_nickname_exclude_occupied_and_active(self) -> None:
+        self.assertEqual(len(registry.NICKNAMES), 200)
+        self.assertEqual(len({item.casefold() for item in registry.NICKNAMES}), 200)
+        for item in registry.NICKNAMES:
+            self.assertGreaterEqual(len(item), 4)
+            self.assertLessEqual(len(item), 6)
+            self.assertTrue(item.isascii() and item.isalpha() and item == item.lower())
+
+        self.register(session_id="S1", nickname="amber")
+        self.register(session_id="S2", nickname="cedar", cleanup_status="closed")
+
+        occupied = [name for name in registry.NICKNAMES if name not in {"amber", "cedar", "ember"}]
+        picked = registry.pick_nickname(occupied=occupied, path=self.state)
+        self.assertIn(picked["nickname"], {"cedar", "ember"})
+        self.assertEqual(picked["pool_size"], 200)
+        self.assertEqual(picked["available_count"], 2)
+
+        cli_output = io.StringIO()
+        argv = ["pick-nickname", "--path", str(self.state)]
+        for name in occupied + ["cedar"]:
+            argv.extend(["--occupied", name])
+        with contextlib.redirect_stdout(cli_output):
+            status = registry.main(argv)
+        self.assertEqual(status, 0)
+        self.assertEqual(json.loads(cli_output.getvalue())["nickname"], "ember")
+
+        with self.assertRaisesRegex(registry.RegistryError, "no unused session nickname"):
+            registry.pick_nickname(occupied=registry.NICKNAMES, path=self.state)
+
+    def test_created_sessions_require_explicit_nickname_and_forbid_duplicates(self) -> None:
+        missing = _record()
+        missing.pop("nickname")
+        with self.assertRaisesRegex(registry.RegistryError, "origin=created requires an explicit non-empty nickname"):
+            registry.register_record(missing, self.state)
+
+        for bad_name in ("", "   ", "active", "ALL", "Shell", "zsh", "session-1a2b3c4d"):
+            with self.assertRaisesRegex(registry.RegistryError, "nickname"):
+                self.register(nickname=bad_name)
+
+        adopted = _record("A1")
+        adopted["origin"] = "adopted"
+        adopted.pop("nickname")
+        self.assertNotIn("nickname", registry.register_record(adopted, self.state))
+
+        created = self.register(session_id="S1", nickname=" ember ")
+        self.assertEqual(created["nickname"], "ember")
+        with self.assertRaisesRegex(registry.RegistryError, "nickname already in use"):
+            self.register(session_id="S2", nickname="EMBER")
+        with self.assertRaisesRegex(registry.RegistryError, "cannot clear nickname"):
+            registry.update_record("S1", "C1", 1, 1, {"nickname": None}, self.state)
+
+        renamed = registry.update_record("S1", "C1", 1, 1, {"nickname": "cobalt"}, self.state)
+        self.assertEqual(renamed["nickname"], "cobalt")
+        self.assertEqual(renamed["generation"], 1)
+
+    def test_legacy_created_record_without_nickname_remains_readable_and_flagged(self) -> None:
+        legacy_payload = {
+            "schema_version": 1,
+            "records": {
+                "S1": {
+                    "session_id": "S1",
+                    "owner_task_id": "T1",
+                    "coordinator_id": "C1",
+                    "origin": "created",
+                    "cleanup_policy": "auto_owned",
+                    "cleanup_status": "retained",
+                    "retention_reason": "user requested keep open",
+                    "execution_status": "completed",
+                    "coordinator_phase": "settled",
+                    "monitor_status": "stopped",
+                    "monitor_mode": "inline",
+                    "audit_path": "/tmp/audit.md",
+                }
+            },
+        }
+        self.state.parent.mkdir(parents=True, exist_ok=True)
+        self.state.write_text(json.dumps(legacy_payload), encoding="utf-8")
+        self.state.chmod(0o600)
+
+        report = registry.report_records(self.state)
+        self.assertFalse(report["settled"])
+        self.assertIn("created_without_nickname", report["resources"][0]["outstanding_reasons"])
 
 
 if __name__ == "__main__":  # pragma: no cover
