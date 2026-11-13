@@ -2,7 +2,7 @@
 name: goals-iterm-skill
 description: Coordinate Coding CLIs such as Claude Code and Codex in iTerm2 through goals-iterm-mcp, continuously monitor and advance tasks, verify results, and maintain a timestamped Markdown audit trail with interaction rounds. Use to delegate, take over, or resume CLI work, reclaim task-owned terminals after acceptance, and close, clean up, or restore sessions on request. Not for ordinary terminal queries or installing MCP alone.
 metadata:
-  version: "0.3.3"
+  version: "0.3.4-dev"
 ---
 
 # Goals iTerm Skill
