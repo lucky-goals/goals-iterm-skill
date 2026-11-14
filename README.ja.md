@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.3.4-dev](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.4-dev)
+Skill バージョン: [v0.3.5-dev](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.5-dev)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
