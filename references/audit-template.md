@@ -10,10 +10,11 @@
 | --- | --- |
 | Task ID | <unique task-id> |
 | Goal | <required final outcome> |
-| Working directory | <absolute path> |
+| Decomposition and parallel plan | <single session with rationale, or parallel subtasks with per-session scope, non-overlap/Git-index guardrails, and integration order> |
+| Working directory | <absolute path, or per-subtask paths> |
 | Coordinator host | <client and available chat ID> |
 | Executing CLI | <type and known version, or unknown> |
-| Initial iTerm session | <nickname and session_id; pending creation if not yet created> |
+| Initial iTerm session | <nickname(s) and session_id(s); pending creation if not yet created> |
 | CLI conversation identity | <chat UUID and source, unknown, or not applicable; never substitute iTerm ID> |
 | Recovery record | <recovery_record_id, recovery_record_path, and receipt persistence result; none yet if unavailable> |
 | Creation time and default timezone | <actual time with UTC offset; timezone name> |

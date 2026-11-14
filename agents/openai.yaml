@@ -1,4 +1,4 @@
 interface:
   display_name: "Goals iTerm Advisor"
-  short_description: "Delegate, monitor, and clean up Coding CLIs through iTerm MCP"
-  default_prompt: "Use $goals-iterm-skill to coordinate a Coding CLI in iTerm for this task: delegate project changes and tests to the CLI, keep the main assistant responsible for necessary read-only acceptance checks, decisions, and a private audit ledger, monitor inline with real waits by default, then finalize resources according to ownership and report results, retained resources or blockers, and ledger and recovery-record links."
+  short_description: "Delegate, parallelize, monitor, and clean up Coding CLIs through iTerm MCP"
+  default_prompt: "Use $goals-iterm-skill to coordinate Coding CLIs in iTerm for this task: decompose independent conflict-free workstreams into parallel sessions when safe, delegate project changes and tests to the CLIs, keep the main assistant responsible for necessary read-only acceptance checks, decisions, and a private audit ledger, monitor inline with real waits by default, then finalize resources according to ownership and report results, retained resources or blockers, and ledger and recovery-record links."

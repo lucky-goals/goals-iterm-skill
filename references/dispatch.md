@@ -33,6 +33,7 @@ Fill in actual task details and remove inapplicable fields. Placeholders are not
 
 ## Constraints and authorization
 <User/project constraints, scope, existing authorization and sources; do not perform unauthorized actions>
+<For parallel subtasks: explicit allowed write paths, read-only boundaries, isolated test commands, and prohibition on touching sibling subtask files or running Git index/branch mutations (`git add`/`commit`/`checkout`/`switch`/`stash`/`rebase`) in a shared working tree>
 
 ## Acceptance and required response
 <Completion criteria, applicable targeted checks, required changes and evidence>

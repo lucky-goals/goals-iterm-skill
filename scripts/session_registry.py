@@ -893,9 +893,11 @@ def report_records(
 def pick_nickname(
     occupied: Iterable[str] = (),
     path: os.PathLike[str] | str | None = None,
+    count: int = 1,
 ) -> dict[str, Any]:
-    """Choose one unused 4-6 character nickname from the 200-name library."""
+    """Choose one or more distinct unused 4-6 character nicknames from the 200-name library."""
 
+    count = _require_integer(count, "count")
     occupied_keys: set[str] = set()
     for item in occupied:
         if isinstance(item, str) and item.strip():
@@ -913,8 +915,13 @@ def pick_nickname(
     available = [name for name in NICKNAMES if name.casefold() not in occupied_keys]
     if not available:
         _fail("no unused session nickname remains in the 200-name library")
+    if len(available) < count:
+        _fail(f"requested {count} unused session nicknames, only {len(available)} available")
+    chosen = secrets.SystemRandom().sample(available, count)
     return {
-        "nickname": secrets.choice(available),
+        "nickname": chosen[0],
+        "nicknames": chosen,
+        "count": count,
         "pool_size": len(NICKNAMES),
         "available_count": len(available),
     }
@@ -944,7 +951,7 @@ def _parser() -> argparse.ArgumentParser:
 
     pick = commands.add_parser(
         "pick-nickname",
-        help="select an unused 4-6 char nickname from the 200-word library",
+        help="select one or more unused 4-6 char nicknames from the 200-word library",
     )
     pick.add_argument("--path", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     pick.add_argument(
@@ -952,6 +959,12 @@ def _parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="live session name/title from list_sessions to exclude (repeatable)",
+    )
+    pick.add_argument(
+        "--count",
+        type=int,
+        default=1,
+        help="number of distinct nicknames to select for parallel session creation (default: 1)",
     )
 
     register = commands.add_parser("register", help="register a new session record")
@@ -998,7 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         state_path = args.path
         if args.command == "pick-nickname":
-            result: Any = pick_nickname(args.occupied, state_path)
+            result: Any = pick_nickname(args.occupied, state_path, count=args.count)
         elif args.command == "register":
             result = register_record(_read_json_object(args.record, "record"), state_path)
         elif args.command == "update":

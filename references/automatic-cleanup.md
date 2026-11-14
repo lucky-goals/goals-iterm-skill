@@ -17,8 +17,8 @@ Use the shared registry helper under the [session lifecycle protocol](session-li
 
 These are host task-record fields, not MCP parameters. Bind real IDs after successful creation. If creation is uncertain, reconcile first; do not invent a cleanup target. Retain legacy resources without ownership evidence rather than fabricating their creation history.
 
-- A new Window, initial Tab, and Session returned by `create_window` may be registered as task-owned.
-- A new Tab and Session returned by `create_tab` may be registered; its preexisting Window remains borrowed by default.
+- A new Window, initial Tab, and Session returned by `create_window` may be registered as task-owned (`owned_container` recording both `window_id` and `tab_id`).
+- A new Tab and Session returned by `create_tab` inside a borrowed preexisting Window records only `tab_id` in `owned_container`, leaving the preexisting Window borrowed by default. When `create_tab` adds sibling parallel Tabs inside a **task-owned** Window created for the same task, record both `tab_id` and `window_id` (`basis="create_tab_in_task_window"`) so early-finishing subtasks can reclaim their own exclusive `Tab` (`close_tab`) while final completion can reclaim the exclusive task `Window` (`close_window`).
 - A CLI started in a user's existing Session, or work taken over in it, defaults to `retain`. Make it reclaimable only with existing explicit cleanup authorization. Authorization for a Session does not automatically cover its parent Tab/Window.
 - When restoring into a new dedicated terminal, register the new resource and distinguish the original CLI chat UUID from new iTerm IDs. Retain borrowed restoration terminals.
 - Briefly state the default post-completion cleanup policy at creation; no additional confirmation is needed. Record the scope of requests such as “keep the terminal” or “leave it open so I can inspect the results.” If ambiguous, retain the whole affected container. Do not automatically reclaim resources inside a retained container.

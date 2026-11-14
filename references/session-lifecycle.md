@@ -32,7 +32,7 @@ Each entry needs the exact Session ID, owner_task_id, coordinator_id, generation
 Common commands follow. Replace `/absolute/path/to/skill` and example IDs/generations with real values; record/patch files contain only observed, redacted fields:
 
 ```sh
-python3 /absolute/path/to/skill/scripts/session_registry.py pick-nickname --occupied amber --occupied cedar
+python3 /absolute/path/to/skill/scripts/session_registry.py pick-nickname --count 2 --occupied amber --occupied cedar
 python3 /absolute/path/to/skill/scripts/session_registry.py register --record /private/path/record.json
 python3 /absolute/path/to/skill/scripts/session_registry.py list --task-id task-1
 python3 /absolute/path/to/skill/scripts/session_registry.py update --session-id S1 --coordinator-id C1 --generation 1 --expected-revision 1 --patch /private/path/patch.json

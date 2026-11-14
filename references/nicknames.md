@@ -7,7 +7,7 @@ Every iTerm2 Session created by `goals-iterm-skill` through `goals-iterm-mcp` **
 1. **Enumerate occupied names first:** Call MCP `list_sessions` before creating a Window or Tab, and collect every existing session's `name` and `title` (trimmed and case-folded), together with active nicknames in `session_registry.py`.
 2. **Select an explicit nickname before creation:**
    - If the user explicitly requested a session nickname, validate that it is 1–64 characters after trimming, contains no control characters, is not a reserved selector (`active`, `all`, `current`, `focused`, `*`), and does not collide case-insensitively with any live session. If it collides, report the conflict instead of silently dropping the name.
-   - Otherwise, explicitly choose an unused 4–6 character nickname from the **200-word nickname library** below (or run `python3 /absolute/path/to/skill/scripts/session_registry.py pick-nickname --occupied <existing-name> ...`, which automatically excludes non-closed nicknames in the local registry).
+   - Otherwise, explicitly choose unused 4–6 character nickname(s) from the **200-word nickname library** below (or run `python3 /absolute/path/to/skill/scripts/session_registry.py pick-nickname --occupied <existing-name> ...`, passing `--count <N>` when allocating distinct nicknames up front for parallel Session creation; `pick-nickname` automatically excludes non-closed nicknames in the local registry).
 3. **Apply the nickname explicitly through MCP:**
    - Inspect the connected `goals-iterm-mcp` schema for `create_window` / `create_tab`:
      - **Current MCP schema (`name` parameter present):** Pass `name="<chosen-nickname>"` directly in `create_window` or `create_tab`.

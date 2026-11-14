@@ -560,8 +560,30 @@ else:
         occupied = [name for name in registry.NICKNAMES if name not in {"amber", "cedar", "ember"}]
         picked = registry.pick_nickname(occupied=occupied, path=self.state)
         self.assertIn(picked["nickname"], {"cedar", "ember"})
+        self.assertEqual(picked["nicknames"], [picked["nickname"]])
+        self.assertEqual(picked["count"], 1)
         self.assertEqual(picked["pool_size"], 200)
         self.assertEqual(picked["available_count"], 2)
+
+        batch = registry.pick_nickname(occupied=occupied, path=self.state, count=2)
+        self.assertEqual(set(batch["nicknames"]), {"cedar", "ember"})
+        self.assertEqual(len(batch["nicknames"]), 2)
+        self.assertEqual(batch["nickname"], batch["nicknames"][0])
+        self.assertEqual(batch["count"], 2)
+
+        cli_batch_output = io.StringIO()
+        batch_argv = ["pick-nickname", "--path", str(self.state), "--count", "2"]
+        for name in occupied:
+            batch_argv.extend(["--occupied", name])
+        with contextlib.redirect_stdout(cli_batch_output):
+            batch_status = registry.main(batch_argv)
+        self.assertEqual(batch_status, 0)
+        self.assertEqual(set(json.loads(cli_batch_output.getvalue())["nicknames"]), {"cedar", "ember"})
+
+        with self.assertRaisesRegex(registry.RegistryError, "count must be an integer >= 1"):
+            registry.pick_nickname(occupied=occupied, path=self.state, count=0)
+        with self.assertRaisesRegex(registry.RegistryError, "only 2 available"):
+            registry.pick_nickname(occupied=occupied, path=self.state, count=3)
 
         cli_output = io.StringIO()
         argv = ["pick-nickname", "--path", str(self.state)]
