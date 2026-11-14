@@ -40,7 +40,7 @@ Cover these points in 1–3 sentences, or a short list for multiple tasks:
 
 Send this factual narration before every real wait, including each segment of at most 60 seconds. For multiple sessions, explain what was processed, latest evidence, nearest deadline, and remaining work. Give all three points before the first wait, then brief updates; unchanged observations can be one sentence rather than a repeated plan. Keep the 10–15 second initial cadence, widening to 30–60 seconds without change; do not poll more often just to produce narration. For long tools that can yield, use segmented waiting and reassess/report on each return without restarting the call. If a tool cannot be interrupted or segmented, explain that visibility limit before calling and update promptly afterward. Do not promise timed messages without a real mechanism. Do not call waits or send repetitive “waiting for the user” updates for waiting_user, canceled, or blocked states without actionable rechecks.
 
-Report stage changes, key results, blockers, required choices, and acceptance/cleanup transitions immediately rather than waiting for the next cycle. Use the host's question channel for user choices; progress narration only explains what is pending. Respect user preferences for frequency or quiet operation while preserving necessary blocker/result notifications. Background monitors still stay quiet without changes; inline narration must not turn into repetitive background notifications.
+Report stage changes, key results, blockers, required choices, and acceptance/cleanup transitions immediately rather than waiting for the next cycle. Use the host's question channel alongside self-contained context (options, affected scope, recommendation, and reasons) for user choices; never drop context just to fit short option labels, and keep progress narration only for explaining what is pending. Respect user preferences for frequency or quiet operation while preserving necessary blocker/result notifications. Background monitors still stay quiet without changes; inline narration must not turn into repetitive background notifications.
 
 Keep the latest narration time, reported stage, wait target, and remaining work in host task records. Recheck evidence before continuing after handoff; these are not MCP parameters. Narration includes only verifiable progress and next steps, never credentials, full logs, invented percentages/ETAs, or private reasoning. It does not replace the ledger. Record key events under the audit protocol; repeated unchanged updates need not each become separate audit events.
 
@@ -60,17 +60,42 @@ Examples, only when supported by actual observations:
 4. Before writing, reread the screen to confirm interaction state has not changed. Stop automatic writes on human input or another coordinator's takeover.
 5. Append key observations and pending questions to the Markdown ledger. Make only the currently necessary decision: record intent, decision maker, and rationale, send, and append delivery outcome. Update the monitor immediately after sending. Update registry revision, monitor checkpoint, and next check. Keep per-session rounds separate but linked to the same task ledger.
 
-## Advisor: when to decide directly
+## Advisor decisions and escalating to the user
+
+Keep routine engineering flow moving without unnecessary interruptions, while ensuring every major decision escalated to the user is crystal clear, contextualized, and backed by concrete advice:
 
 | Situation | Action |
 | --- | --- |
-| CLI asks which routine implementation approach to use | Choose from the goal, existing architecture, compatibility, and change size; briefly explain and continue |
+| CLI asks a routine implementation or repository-style choice (e.g., local module layout, reusing existing helpers vs small inline code, adding a minor repo-compatible utility, local API/error-code compatibility) | Decide directly using the goal, existing repository conventions, compatibility, and change size; briefly state the rationale, record it in the ledger, and continue |
 | CLI proposes read-only diagnosis or targeted tests | Allow within existing authorization while preserving project testing constraints |
 | CLI requests execution permission | Inspect the exact action; approve only within user and host permissions, without enabling a global permission-bypass mode |
-| CLI asks an uninferable product tradeoff or needs extra cost, publication, or destructive action | Preserve question, options, and recommendation; ask the user, pause automatic progress, and do not repeatedly ask the same question |
-| Login, verification code, missing credential, or account quota blocker | Report the specific issue and wait for the user; do not solicit or forward credentials |
+| CLI raises an uninferable product/UX tradeoff, major cross-module/heavy-dependency shift, destructive/irreversible change, extra cost, or out-of-scope publication/push | Perform any needed read-only inspection first so you understand the code/runtime context, mark that session `waiting_user`, stop automatic writes, and escalate to the user under the self-contained escalation rules below; do not repeatedly ask the same question |
+| Login, verification code, missing credential, or account quota blocker | Report which session/CLI hit the blocker, the exact step affected, and the needed user action; wait without soliciting or forwarding credentials |
 
-Be specific, for example: “Use approach A to match the existing module and preserve the public API. Run only tests for affected modules, then return the changes and test results.” Do not send an ambiguous “continue.” Put multiline or multi-condition decisions in a [decision file](dispatch.md) and send only a single-line reference. Observe reading and execution evidence; a failed read is not an implemented decision.
+Be specific when deciding directly — for example: “Follow the existing repository pattern in `auth/errors.py` rather than introducing a new wrapper class, run targeted auth tests, and return the diff and results.” Never send an ambiguous “continue.” Put multiline or multi-condition decisions in a [decision file](dispatch.md) and send only a single-line reference. Observe reading and execution evidence; a failed read is not an implemented decision.
+
+### Self-contained escalation requirements (no over-compression)
+
+Assume the user is **not watching the iTerm terminal screen** and must understand and decide purely from your message. Every escalated decision item must satisfy all four rules:
+
+1. **No context-free shorthands or raw forwarding:** Never copy a vague CLI question (`"Use A or B?"`, `"Proceed with cleanup?"`, `"Delete old branch?"`) verbatim or compress items so heavily that the target or stakes disappear. Always identify the task/subtask and terminal (`nickname` + `session_id`), what step was running, concrete target objects (exact file paths, modules, commands, data, or APIs), and why user authorization is required.
+2. **Always synthesize concrete options:** Expand each choice from a label into what it actually does and its impact/risk. If the CLI failed to lay out clear alternatives, inspect the relevant code/state read-only first and construct the viable options yourself.
+3. **Always give a recommendation and concrete reasons:** Unless the choice is strictly subjective with no technical/product preference (in which case explicitly state why either option is equally valid), select one **recommended option**, mark it clearly (e.g., `(Recommended)`), and explain:
+   - **Why this option fits best** (alignment with goal, repo conventions, compatibility, reversibility, scope/risk control); and
+   - **Tradeoffs vs alternatives** (what concrete drawback or risk makes the other option less preferred).
+4. **Preserve distinct numbered items & question-tool clarity:** When multiple decisions require user input (e.g., across parallel sessions), list each decision separately by ID (`D01`, `D02`, …) with its own context, options, and recommendation — never collapse distinct decisions into one vague summary. If using a host multiple-choice card/question tool whose option labels must stay concise, put the full context, tradeoff details, and rationale in the message/prompt body above the options, keep option labels self-explanatory with the recommended option first, and avoid bare `"Option A / Option B"` labels.
+
+### Tiered presentation format
+
+Match verbosity to decision complexity without ever omitting target objects, recommendation, or reason:
+
+- **Concise form (for simple, bounded decisions)** — e.g., a single straightforward yes/no authorization, retention check, or low-complexity two-way fork whose facts fit in 2–4 lines:
+  - Identify the **session/subtask + concrete target & trigger** (`[D01 · ember] ...`), state the **specific choice**, mark the **recommended option** and **brief reason / consequence**.
+- **Full 4-part brief (required for complex, multi-file, architectural, high-risk, or non-obvious tradeoffs):**
+  1. **Context & blocker:** Which session (`nickname` / `session_id`) and step hit this point, verified terminal/code facts, and why it cannot be decided automatically.
+  2. **Decision point & affected scope:** Exact question to decide, concrete files/modules/behaviors/branches/external effects involved.
+  3. **Option comparison:** Each viable option (concrete action, pros, cons/risks, reversibility).
+  4. **Recommended option & rationale:** Explicit recommended choice + why it wins over the alternatives under current constraints.
 
 ## Network errors and bounded recovery
 
@@ -112,8 +137,11 @@ After changing the skill, walk through these terminal excerpts/events and inspec
 | Unsent multiline decision and unknown paste behavior | Write a decision file, record intent, send/verify/submit a single-line path instruction; apply [dispatch scenarios](dispatch.md#focused-validation-scenarios) |
 | `[Pasted text #1]` with unverifiable contents | Do not infer failure/submission; check ownership and submission state. Clear only this coordinator's confirmed unsubmitted draft using known semantics before switching to a file |
 | CLI cannot find/read the file | Record failure and check environment/readable paths; no guessing from filenames, permission expansion, or multiline paste fallback |
-| CLI asks whether to reuse a parser or add a dependency | Decide from repository and goal, without automatically asking the user |
-| CLI wants production-data deletion or out-of-scope publication | Ask the user and stop automatic writes |
+| CLI asks whether to reuse a parser, pick local helper naming, or maintain local error-code compatibility matching repo style | Decide directly from repository conventions and goal without asking the user; record a brief rationale and continue |
+| CLI asks a bare “Option A or B?” without explaining code impact or recommending one | Inspect relevant files/terminal read-only first; build self-contained options, pick a recommended choice with concrete reasons (using concise or 4-part format by complexity), and mark the session `waiting_user` |
+| Two parallel sessions each raise a major tradeoff or destructive push request | Present numbered `D01` and `D02` with each session's `nickname`, scope, options, recommendation, and reasons (expanding complex items to 4 parts); pause only `waiting_user` sessions while advancing active siblings |
+| Host question card has short option buttons | Write full context, affected scope, option tradeoffs, and rationale in the message/question body; make option labels descriptive and list `(Recommended)` first |
+| CLI wants production-data deletion or out-of-scope publication | Escalate with full target/consequence context, safe default recommendation, and rationale; pause automatic writes |
 | “Done,” but required tests have not run | Request missing validation and keep monitoring |
 | Only a prompt, no explicit result | Read more context; do not declare completion |
 | Session disappears and a new same-nickname session_id appears | Do not automatically rebind or replay |

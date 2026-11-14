@@ -48,8 +48,8 @@ Keep the ledger synchronized with execution: append dispatch/decision intent and
 | State | Action |
 | --- | --- |
 | Working or automatically retrying | Continue observing; do not send “continue,” Enter, or interrupt keys |
-| Awaiting a routine decision | Decide from the goal, project constraints, and existing authorization; give a brief rationale and update the monitor after sending |
-| Awaiting a decision beyond authorization | Preserve context, ask the user for the specific choice, and stop automatic writes |
+| Awaiting a routine decision | Decide directly from the goal, existing repository style, project constraints, and authorization (including routine local implementation, helper/library reuse matching repo patterns, and local API/error compatibility); give a brief rationale, record it, and continue |
+| Awaiting a decision beyond authorization | First gather any needed read-only context, then escalate using [user decision presentation](references/monitoring.md#advisor-decisions-and-escalating-to-the-user): keep every `D` item self-contained (identifying session nickname/`session_id`, trigger context, concrete target files/scope, explicit options, plus your recommended option and why — never raw vague CLI prompts or context-free shorthands), and stop automatic writes on that session |
 | Confirmed interruption with no automatic continuation | Verify completed actions, use bounded recovery, and update the monitor after sending |
 | CLI claims completion | Verify every acceptance criterion and actual result; dispatch targeted follow-up work for gaps |
 | Uncertain, truncated output, or temporarily unchanged | Read more and observe after a delay; do not declare success or force a restart |
