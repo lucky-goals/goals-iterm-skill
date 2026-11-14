@@ -1,11 +1,11 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.6)
+Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
 
 [项目官网](https://lucky-goals.github.io/goals-iterm-skill/zh/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-当通过本 skill 委派、接管或继续任务时，负责协调的 agent 作为根协调者。它通过 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指挥 iTerm2 中的 Claude Code、Codex 等 CLI，监控进度、自主处理常规决策并验收结果。遵循[执行边界](references/orchestrator.md)：项目写入、产物、测试、构建、依赖/配置/服务变更及 Git 修改都经由终端 CLI；只读 Git 检查可以直接进行。根 agent 和原生子 agent 只读访问项目上下文、验收条件并进行评审。只有获得明确授权才能发布。
+当通过本 skill 委派、接管或继续任务时，负责协调的 agent 作为根协调者。它通过 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指挥 iTerm2 中的一个或多个 Claude Code、Codex 等 CLI：自动将无冲突的独立子任务并行拆解派发（默认收敛在单个任务窗口 + 同级标签页中，并为每个新建会话强制分配来自 200 词[昵称库](references/nicknames.md)的 4–6 位易记昵称），持续监控进度，按仓库既有风格自主处理常规工程决策；遇到超出授权的重大权衡时，提供自包含上下文、可行选项及推荐方案与理由（简单确认用简明格式，复杂权衡展开完整 4 段分析），并完成验收与资源收尾。遵循[执行边界](references/orchestrator.md)：项目写入、产物、测试、构建、依赖/配置/服务变更及 Git 修改都经由终端 CLI；只读 Git 检查可以直接进行。根 agent 和原生子 agent 只读访问项目上下文、验收条件并进行评审。只有获得明确授权才能发布。
 
 默认在当前执行中内联监控。每次等待前，协调者根据最新证据向用户简要说明进度，及时报告阶段变化和阻碍，不编造百分比或完成时间。只有用户明确要求且已核实宿主确有唤醒/调度句柄时，才使用后台监控。详见[进度旁白协议](references/monitoring.md#progress-narration-before-inline-waits)。
 
@@ -156,9 +156,10 @@ Skill 版本: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ```text
 使用 goals-iterm-skill，在 iTerm 中让 Claude Code 修复 /path/to/project
-的登录问题。先诊断再修复，只运行相关测试。项目变更都交给 CLI；根 agent 和原生子 agent
-只读查看上下文并评审。默认在当前执行中内联监控，
-常规技术决策由你判断，确定网络错误已中断且不会自动续跑时恢复任务。
+的登录问题。先诊断，无冲突子任务安全并行推进，再修复并只运行相关测试。项目变更都交给 CLI；
+根 agent 和原生子 agent 只读查看上下文并评审。默认在当前执行中内联监控，
+常规工程决策按仓库既有风格由你自主判断；重大权衡提供具体上下文、选项、推荐方案及理由；
+确定网络错误已中断且不会自动续跑时恢复任务。
 验收完成后停止负责业务写入的 monitor，并完成已授权的收尾，直到所属资源已关闭、明确保留，
 或已阻塞并记录可执行的处置方案。汇总改动、测试、资源核算总数及原因、恢复证据和待处理后续事项。
 不要发布。

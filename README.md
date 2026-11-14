@@ -1,11 +1,11 @@
 # goals-iterm-skill
 
-Skill version: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.6)
+Skill version: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-When this skill is activated to delegate, take over, or continue a task, the coordinating agent acts as the root orchestrator. It uses [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) to direct Claude Code, Codex, and other CLIs running in iTerm2, monitor progress, make routine decisions, and verify completion. Follow the [execution boundary](references/orchestrator.md): project writes, artifacts, tests, builds, dependency/configuration/service changes, and Git mutations go through the terminal CLI; the root agent and native subagents use read-only project access for context, acceptance, and review. Read-only Git inspection is allowed. Publishing still requires explicit authorization.
+When this skill is activated to delegate, take over, or continue a task, the coordinating agent acts as the root orchestrator. It uses [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) exclusively to direct one or more Claude Code, Codex, and other CLIs running in iTerm2—decomposing independent, conflict-free workstreams into parallel sessions (grouped in one task Window + sibling Tabs, each created with an explicit 4–6 character nickname from the 200-word [nickname library](references/nicknames.md)), monitoring progress, making routine repository-aligned engineering decisions autonomously, escalating major tradeoffs with self-contained context, options, and a recommended choice + rationale, and verifying completion. Follow the [execution boundary](references/orchestrator.md): project writes, artifacts, tests, builds, dependency/configuration/service changes, and Git mutations go through the terminal CLI; the root agent and native subagents use read-only project access for context, acceptance, and review. Read-only Git inspection is allowed. Publishing still requires explicit authorization.
 
 Inline monitoring in the current execution is the default. Before each wait, the coordinator posts a brief evidence-based update to the user, reports stage changes and blockers, and does not invent percentages or completion estimates. Background monitoring is used only when explicitly requested and a real host wakeup or scheduler handle is verified. See the [progress narration protocol](references/monitoring.md#progress-narration-before-inline-waits).
 
@@ -168,10 +168,12 @@ Keep business completion separate from the cleanup outcome. Write each session's
 
 ```text
 Use goals-iterm-skill to have Claude Code in iTerm fix the login issue in
-/path/to/project. Diagnose first, then fix it and run only relevant tests. Route
-project changes through the CLI; keep root/native agents read-only for context and review.
-Monitor inline in the current run by default, make routine technical decisions, and recover
-from network failures only when the task has stopped and will not resume itself.
+/path/to/project. Diagnose first, decompose conflict-free workstreams in parallel when safe,
+then fix it and run only relevant tests. Route project changes through the CLI; keep root/native
+agents read-only for context and review. Monitor inline in the current run by default, make
+routine repo-aligned technical decisions directly, escalate major tradeoffs with concrete context,
+options, and your recommended choice + rationale, and recover from network failures only when
+the task has stopped and will not resume itself.
 After acceptance checks pass, stop the business-writing monitor and complete the
 authorized finalization until owned resources are closed, explicitly retained,
 or blocked with an actionable disposition. Summarize changes, tests,

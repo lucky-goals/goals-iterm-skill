@@ -1,11 +1,11 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.6)
+Skill バージョン: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-この skill を使ってタスクを委任、引き継ぎ、または続行するとき、調整役の agent は root orchestrator として動作します。[goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 経由で iTerm2 上の Claude Code、Codex などの CLI に指示し、進捗を監視し、通常の判断を行い、完了を確認します。[実行境界](references/orchestrator.md)に従い、プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は terminal CLI 経由で行います。読み取り専用の Git 確認は直接行えます。root agent とネイティブ subagent はプロジェクトの文脈、完了条件、レビューを読み取り専用で扱います。公開には明示的な許可が必要です。
+この skill を使ってタスクを委任、引き継ぎ、または続行するとき、調整役の agent は root orchestrator として動作します。[goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) のみを経由して iTerm2 上の 1 つ以上の Claude Code、Codex などの CLI に指示し、競合のない独立した作業は並列セッション（既定では 1 つのタスク専用 Window＋兄弟 Tab、各新規セッションに 200 語の[ニックネーム集](references/nicknames.md)から 4〜6 文字の明示的ニックネームを付与）へ分割し、進捗を監視し、リポジトリ既存の流儀に沿う通常の技術判断は自律的に進め、権限外の重要なトレードオフは自己完結した文脈・選択肢・推奨案と理由を添えてエスカレーションし、完了確認とリソース回収まで行います。[実行境界](references/orchestrator.md)に従い、プロジェクトへの書き込み、成果物、テスト、ビルド、依存関係/設定/サービスの変更、Git への変更操作は terminal CLI 経由で行います。読み取り専用の Git 確認は直接行えます。root agent とネイティブ subagent はプロジェクトの文脈、完了条件、レビューを読み取り専用で扱います。公開には明示的な許可が必要です。
 
 現在の実行中に行うインライン監視が既定です。待機前に最新の証拠に基づく短い進捗をユーザーに伝え、段階の変化や問題を報告し、根拠のない進捗率や完了時刻は示しません。バックグラウンド監視は、ユーザーが明示的に依頼し、実際の宿主 wakeup/scheduler handle を確認できた場合だけ使います。[進捗報告の手順](references/monitoring.md#progress-narration-before-inline-waits)を参照してください。
 
@@ -151,8 +151,8 @@ MCP 終了ツールの経路では、中断、CLI の終了、またはネイテ
 
 ```text
 goals-iterm-skill を使い、iTerm 上の Claude Code に /path/to/project の
-ログイン問題を修正させてください。まず原因を調査し、修正後は関連テストだけを実行して
-ください。プロジェクトへの変更は CLI に任せ、root/native agent は文脈の確認とレビューを読み取り専用で行ってください。既定では現在の実行中にインラインで監視し、通常の技術判断はあなたが行ってください。
+ログイン問題を修正させてください。まず原因を調査し、競合しない独立作業は安全に並列化し、
+修正後は関連テストだけを実行してください。プロジェクトへの変更は CLI に任せ、root/native agent は文脈の確認とレビューを読み取り専用で行ってください。既定では現在の実行中にインラインで監視し、リポジトリの規約に沿う通常の技術判断はあなたが行い、重要なトレードオフは具体的な文脈・選択肢・推奨案と理由を示して確認してください。
 ネットワークエラーでタスクが停止し、自動再開しないと確認できた場合は復旧してください。
 完了条件を満たしたら業務上の書き込みを行う monitor を停止し、所有するリソースが閉じられた、
 明示的に保持された、または実行可能な処置を伴ってブロックされた状態になるまで、認可された

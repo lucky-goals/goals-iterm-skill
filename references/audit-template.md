@@ -64,7 +64,7 @@ Round conventions: U is a logical user/coordinator round within the task; C is a
 > <Redacted and safely quoted CLI content; remove if not applicable>
 
 - **Coordinator assessment:** <separate observed facts, inferences, and uncertainty>
-- **Decision:** <pending/specific choice/no decision; D ID, self-contained question & affected objects, options, coordinator recommendation & rationale, decision maker, final rationale, and authorization source>
+- **Decision:** <`no decision` if none; otherwise D ID, `pending` or selected choice, self-contained question & affected scope/objects, options, decision maker (`coordinator` + brief rationale, or `user` + coordinator recommendation/rationale vs final user choice), and authorization source>
 - **Actual action and delivery:** <pending/API acknowledged/delivery unknown/execution observed/no write; relevant tool result>
 - **Outcome and task state:** <separate execution_status, coordinator_phase, and cleanup_status; known outcome of this event, not assumed later success>
 - **Monitoring:** <monitor_mode, actual handle or none, monitor_status; next inline check or confirmed background scheduling; separate business-monitor stop from finalizer state>

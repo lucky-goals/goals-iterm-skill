@@ -1,11 +1,11 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.6)
+Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-透過本 skill 委派、接手或繼續任務時，負責協調的 agent 會擔任根協調者。它透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的 Claude Code、Codex 等 CLI，監控進度、自行處理一般決策並驗收結果。請遵循[執行邊界](references/orchestrator.md)：專案寫入、產物、測試、建置、相依套件/設定/服務變更及 Git 修改都交由終端 CLI 執行；唯讀 Git 檢查可以直接進行。根 agent 和原生子 agent 只讀取專案脈絡、驗收條件並進行審查。發布仍須取得明確授權。
+透過本 skill 委派、接手或繼續任務時，負責協調的 agent 會擔任根協調者。它透過 [goals-iterm-mcp](https://github.com/lucky-goals/goals-iterm-mcp) 指揮 iTerm2 中的一個或多個 Claude Code、Codex 等 CLI：自動將無衝突的獨立子任務平行拆解派發（預設收斂在單一任務視窗 + 同層分頁中，並為每個新建工作階段強制指派來自 200 詞[暱稱庫](references/nicknames.md)的 4–6 字元易記暱稱），持續監控進度，依儲存庫既有風格自行處理一般工程決策；遇到超出授權的重大權衡時，提供自包含脈絡、可行選項與建議方案及理由（簡單確認採精簡格式，複雜權衡展開完整 4 段分析），並驗收結果與完成資源收尾。請遵循[執行邊界](references/orchestrator.md)：專案寫入、產物、測試、建置、相依套件/設定/服務變更及 Git 修改都交由終端 CLI 執行；唯讀 Git 檢查可以直接進行。根 agent 和原生子 agent 只讀取專案脈絡、驗收條件並進行審查。發布仍須取得明確授權。
 
 預設在目前執行中進行內聯監控。每次等待前，協調者根據最新證據向使用者簡短說明進度，及時回報階段變化和阻礙，不編造百分比或完成時間。只有使用者明確要求且已確認宿主有真正的喚醒/排程控制代碼時，才使用背景監控。詳見[進度旁白協議](references/monitoring.md#progress-narration-before-inline-waits)。
 
@@ -145,9 +145,10 @@ Skill 版本: [v0.3.6](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ```text
 使用 goals-iterm-skill，在 iTerm 中讓 Claude Code 修復 /path/to/project
-的登入問題。先診斷再修復，只執行相關測試。專案變更都交給 CLI；根 agent 和原生子 agent
-只讀檢查脈絡並審查結果。預設在目前執行中內聯監控，
-一般技術決策由你判斷，確定網路錯誤已中斷任務且不會自動繼續時恢復任務。
+的登入問題。先診斷，無衝突子任務安全平行推進，再修復並只執行相關測試。專案變更都交給 CLI；
+根 agent 和原生子 agent 只讀檢查脈絡並審查結果。預設在目前執行中內聯監控，
+一般工程決策依儲存庫既有風格由你自主判斷；重大權衡提供具體脈絡、選項、建議方案與理由；
+確定網路錯誤已中斷任務且不會自動繼續時恢復任務。
 驗收完成後停止負責業務寫入的 monitor，並完成已授權的收尾，直到所屬資源已關閉、明確保留，
 或已阻塞並記錄可執行的處置方案。彙整修改、測試、資源核算總數及原因、恢復證據和待處理後續事項。
 不要發布。

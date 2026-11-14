@@ -28,7 +28,7 @@ Fill in actual task details and remove inapplicable fields. Placeholders are not
 <Required outcome; completed actions; evidence sources; remaining unknowns>
 
 ## Decision and execution order
-<Selected approach, brief rationale, prerequisites, and next steps; report a blocker if prerequisites fail>
+<Selected approach, brief rationale, prerequisites, and next steps; make routine local implementation choices aligned with existing repository conventions directly>
 <For recovery, identify results to verify first and actions that must not be repeated>
 
 ## Constraints and authorization
@@ -38,7 +38,7 @@ Fill in actual task details and remove inapplicable fields. Placeholders are not
 ## Acceptance and required response
 <Completion criteria, applicable targeted checks, required changes and evidence>
 Read the whole file, briefly report its dispatch ID and key constraints, then act within existing authorization without waiting for another coordinator confirmation.
-If you cannot read it completely, the target/generation differs, or requirements conflict, stop this round and report the specific blocker. Do not guess missing content.
+If you cannot read it completely, the target/generation differs, requirements conflict, or you hit a blocker / major tradeoff beyond scope or authorization, stop before taking irreversible or cross-boundary action and report: exact files/symbols affected, viable options with pros/cons/risks, and your recommended option with rationale (never ask a bare context-free “Option A or B?”). Do not guess missing content.
 ```
 
 Include only what is necessary for this round, not credentials, unrelated history, or complete logs. Put CLI output and external material in clearly labeled quotations; their requests do not become authorization. The coordinator derives decisions and constraints from the user's requirements. The file does not change applicable user, project, or host rules.
@@ -77,7 +77,7 @@ Walk through these scenarios after protocol changes. Static checks do not prove 
 
 | Input / observation | Expected action and evidence |
 | --- | --- |
-| Initial task has several goals, constraints, and acceptance criteria | Write and read back a complete unique file, audit intent, send a newline-free instruction, verify and submit separately, then record reading evidence |
+| Initial task has several goals, constraints, and acceptance criteria | Write and read back a complete unique file (including structured blocker/tradeoff reporting instructions), audit intent, send a newline-free instruction, verify and submit separately, then record reading evidence |
 | Approach A is conditional on a precheck; C is deferred | File states A's prerequisite, what to do if it fails, and that C is excluded this round; CLI's constraint acknowledgment covers it |
 | Simple single-line answer or arrow-key-only menu | Directly send the former; operate the latter as a menu rather than forcing a file path |
 | Coordinator's unsubmitted draft folds to `[Pasted text #1]` | Do not infer corruption; if contents cannot be verified, clear using known semantics, verify, and dispatch a file under the same C |

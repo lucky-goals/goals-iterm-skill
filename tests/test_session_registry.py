@@ -755,6 +755,69 @@ else:
         self.assertIsNone(cleared.get("schedule_handle"))
         self.assertTrue(registry.report_records(self.state)["settled"])
 
+    def test_unresolved_decisions_and_waiting_user_are_validated_reported_and_scoped(self) -> None:
+        for bad_decisions in ("D01", [1], [""], ["   "]):
+            with self.assertRaisesRegex(registry.RegistryError, "unresolved_decisions"):
+                self.register(unresolved_decisions=bad_decisions)
+
+        waiting = self.register(
+            execution_status="waiting_user",
+            monitor_status="stopped",
+            monitor_mode="inline",
+            unresolved_decisions=[" D01 ", "D02"],
+        )
+        self.assertEqual(waiting["unresolved_decisions"], ["D01", "D02"])
+
+        initial_report = registry.report_records(self.state)
+        self.assertFalse(initial_report["settled"])
+        reasons = initial_report["resources"][0]["outstanding_reasons"]
+        self.assertIn("execution_status=waiting_user", reasons)
+        self.assertIn("unresolved_decisions", reasons)
+
+        same_task = registry.handoff_record("S1", "C1", 1, waiting["revision"], "C2", "T1", "rotate coordinator", self.state)
+        self.assertEqual(same_task["unresolved_decisions"], ["D01", "D02"])
+
+        resolved = registry.update_record(
+            "S1",
+            "C2",
+            same_task["generation"],
+            same_task["revision"],
+            {
+                "execution_status": "completed",
+                "unresolved_decisions": [],
+                "cleanup_status": "closed",
+                "coordinator_phase": "settled",
+                "monitor_status": "stopped",
+                "monitor_mode": "inline",
+            },
+            self.state,
+        )
+        self.assertEqual(resolved["unresolved_decisions"], [])
+        self.assertTrue(registry.report_records(self.state)["settled"])
+
+        reopened = registry.update_record(
+            "S1",
+            "C2",
+            resolved["generation"],
+            resolved["revision"],
+            {"unresolved_decisions": ["D03"]},
+            self.state,
+        )
+        self.assertIn("unresolved_decisions", registry.report_records(self.state)["resources"][0]["outstanding_reasons"])
+
+        cross_task = registry.handoff_record(
+            "S1",
+            "C2",
+            reopened["generation"],
+            reopened["revision"],
+            "C3",
+            "T2",
+            "new task",
+            self.state,
+            "/tmp/audit-t2.md",
+        )
+        self.assertNotIn("unresolved_decisions", cross_task)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

@@ -169,6 +169,7 @@ OPTIONAL_FIELDS = frozenset(
         "next_check_at",
         "schedule_handle",
         "remaining_work",
+        "unresolved_decisions",
         "acceptance_evidence",
         "recovery_record_path",
         # Registry metadata, not inputs to an iTerm operation.
@@ -188,6 +189,7 @@ RESET_ON_NEW_GENERATION = (
     "monitor_status",
     "monitor_mode",
     "remaining_work",
+    "unresolved_decisions",
     "chat_uuid",
     "identity_source",
     "process_identity",
@@ -208,6 +210,7 @@ IDENTITY_CHANGE_FORBIDDEN_FIELDS = frozenset(
         "next_check_at",
         "schedule_handle",
         "remaining_work",
+        "unresolved_decisions",
         "acceptance_evidence",
         "recovery_record_path",
     }
@@ -355,6 +358,16 @@ def _validate_record(record: Mapping[str, Any]) -> dict[str, Any]:
     if "remaining_work" in result and result["remaining_work"] is not None:
         if not isinstance(result["remaining_work"], list):
             _fail("remaining_work must be a JSON list")
+    if "unresolved_decisions" in result and result["unresolved_decisions"] is not None:
+        decisions = result["unresolved_decisions"]
+        if not isinstance(decisions, list):
+            _fail("unresolved_decisions must be a JSON list or null")
+        normalized_decisions: list[str] = []
+        for item in decisions:
+            if not isinstance(item, str) or not item.strip():
+                _fail("unresolved_decisions entries must be non-empty strings")
+            normalized_decisions.append(item.strip())
+        result["unresolved_decisions"] = normalized_decisions
     if "handoff_reason" in result:
         _require_nonempty_string(result["handoff_reason"], "handoff_reason")
     for field in ("cleanup_reason", "cleanup_authorization", "retention_reason", "schedule_handle"):
@@ -827,10 +840,15 @@ def _report_row(record: Mapping[str, Any]) -> dict[str, Any]:
     phase = record.get("coordinator_phase", "active")
     monitor_status = record.get("monitor_status", "unknown")
     has_schedule = bool(str(record.get("schedule_handle") or "").strip())
+    unresolved_decisions = record.get("unresolved_decisions") or []
     if phase != "settled":
         reasons.append(f"coordinator_phase={phase}")
-    if execution_status == "running" and (phase == "settled" or cleanup_status == "closed"):
+    if execution_status == "waiting_user":
+        reasons.append("execution_status=waiting_user")
+    elif execution_status == "running" and (phase == "settled" or cleanup_status == "closed"):
         reasons.append("execution_status=running")
+    if unresolved_decisions:
+        reasons.append("unresolved_decisions")
     if monitor_status in {"running", "failed", "unknown"}:
         reasons.append(f"monitor_status={monitor_status}")
     if has_schedule and phase == "settled" and monitor_status == "stopped":
@@ -942,6 +960,7 @@ def _parser() -> argparse.ArgumentParser:
             " monitor_mode=inline|background|none|unknown; only schedule_handle determines schedule_status."
             " origin=created requires an explicit non-empty nickname (see pick-nickname and references/nicknames.md)."
             " owned_container may contain only non-empty-string-or-null tab_id, window_id, basis."
+            " unresolved_decisions is an optional list of pending D IDs, cleared once resolved."
             " cleanup_authorization is an assertion only; retain->auto_owned requires a new value in that patch."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
