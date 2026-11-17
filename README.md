@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill version: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
+Skill version: [v0.3.8](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.8)
 
 [Website](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -17,10 +17,10 @@ Setup order:
 
 1. On the Mac running the terminals, install and open iTerm2. Enable **Settings → General → Magic → Python API**, and approve its API authorization dialog when prompted.
 2. Configure goals-iterm-mcp as a local stdio server in the coordinating client. The client must be able to access that Mac; a cloud-only chat cannot directly control its local iTerm2.
-3. Install and authenticate the target Claude Code, Codex, or other CLI in iTerm2. Confirm it starts normally, including in new tabs. Keep credentials out of prompts.
+3. Install and authenticate the target Claude Code, Codex, Cursor Agent, Kiro CLI, DSH (`dsh` / `dsh-tui`), or other CLI in iTerm2. Confirm it starts normally, including in new tabs (for `dsh headless`, ensure `DEEPSEEK_API_KEY` or configured auth works since interactive credential plugins are disabled by default). Keep credentials out of prompts.
 4. Verify MCP tool discovery and a read-only `list_sessions` call, then install this skill. Task execution needs write tools; a `--read-only` server can only observe.
 
-See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.2.3`; it does not assert that future versions are incompatible.
+See the [MCP installation guide](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.md) for the full instructions and version updates. The following example pins the documented version `0.2.5`; it does not assert that future versions are incompatible.
 
 ```text
 Please install goals-iterm-mcp for [target client] on this Mac.
@@ -29,11 +29,11 @@ Repository: https://github.com/lucky-goals/goals-iterm-mcp
 1. Read the project's installation guide. Check macOS, iTerm2, and uv/uvx.
    If uv is missing, install it using its official instructions.
 2. Verify the package using Python 3.12:
-   uvx --python 3.12 goals-iterm-mcp@0.2.3 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.5 --help
 3. Back up the client's existing MCP configuration. Add or update one local stdio
    server named iterm, preserving all unrelated settings and avoiding duplicates:
    command: the absolute path to uvx
-   args: ["--python", "3.12", "goals-iterm-mcp@0.2.3", "serve"]
+   args: ["--python", "3.12", "goals-iterm-mcp@0.2.5", "serve"]
    Use the target client's supported configuration format and location.
 4. Guide me through enabling the iTerm2 Python API and approving its dialog if needed.
    Reload MCP using the supported mechanism; explain any required manual restart.
@@ -194,7 +194,7 @@ Create and start a Codex Goal. Use $goals-iterm-skill to continuously direct
 a Coding CLI through iTerm MCP until the following task passes acceptance checks.
 
 Project directory: [absolute path]
-Execution CLI: [Claude Code / Codex CLI]
+Execution CLI: [Claude Code / Codex CLI / Cursor Agent / Kiro CLI / dsh-tui / dsh]
 Target session: [existing nickname or ID; otherwise create a dedicated session]
 
 Objective:
@@ -271,7 +271,7 @@ See the [audit protocol](references/audit.md) and [Markdown template](references
 
 ## Maintenance and validation
 
-The entry point is [SKILL.md](SKILL.md). See [orchestrator.md](references/orchestrator.md) for the execution boundary, [iterm-tools.md](references/iterm-tools.md) for tool semantics, [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are in English. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
+The entry point is [SKILL.md](SKILL.md). See [orchestrator.md](references/orchestrator.md) for the execution boundary, [iterm-tools.md](references/iterm-tools.md) for tool semantics, [coding-clis.md](references/coding-clis.md) for per-CLI launch, model/effort/`bypass` mapping, continuation, and exit playbooks (`Claude Code`, `Codex`, `Cursor Agent`, `Kiro CLI`, and `dsh` / `dsh-tui`), [monitoring.md](references/monitoring.md) for monitoring, recovery, and behavioral validation scenarios, and [closing-and-recovery.md](references/closing-and-recovery.md) for cleanup recovery details. These instruction files are in English. Tool conventions are based on `src/goals_iterm_mcp/direct.py` in cc-iterm-mcp; the installed tool schema takes precedence at runtime.
 
 After changes, validate the skill frontmatter and relative links, then walk through the scenarios in the monitoring protocol. Real CLI checks should use a dedicated test session and cover dispatch, decisions, recovery, and monitor cleanup. Static validation does not establish that background scheduling or live CLI integration works.
 

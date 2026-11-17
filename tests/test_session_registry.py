@@ -818,6 +818,42 @@ else:
         )
         self.assertNotIn("unresolved_decisions", cross_task)
 
+    def test_dsh_session_identity_and_resume_metadata_roundtrip(self) -> None:
+        session_id = "session-12345678-1234-4234-8234-1234567890ab"
+        plain_uuid = "87654321-4321-4321-8123-ba0987654321"
+        created = self.register(
+            cli="dsh",
+            chat_uuid=session_id,
+            identity_source="process_open_file",
+            recovery_status="ready",
+            evidence={
+                "cwd": "/tmp/dsh-project",
+                "resume": {
+                    "executable": "dsh",
+                    "argv": ["headless", "--session-id", session_id],
+                },
+            },
+        )
+        self.assertEqual(created["cli"], "dsh")
+        self.assertEqual(created["chat_uuid"], session_id)
+
+        tui = self.register(
+            session_id="S2",
+            nickname="birch",
+            cli="dsh-tui",
+            chat_uuid=plain_uuid,
+            identity_source="process_open_file",
+            recovery_status="ready",
+            evidence={
+                "resume": {
+                    "executable": "dsh-tui",
+                    "argv": ["--resume", plain_uuid],
+                }
+            },
+        )
+        self.assertEqual(tui["cli"], "dsh-tui")
+        self.assertEqual(tui["chat_uuid"], plain_uuid)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

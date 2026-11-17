@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
+Skill 版本: [v0.3.8](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.8)
 
 [專案官網](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -17,10 +17,10 @@ Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 1. 在執行終端的 Mac 上安裝並開啟 iTerm2，在 **Settings → General → Magic → Python API** 中啟用 API，並在出現授權視窗時批准連線。
 2. 將 goals-iterm-mcp 設定為協調用戶端的本機 stdio 服務。用戶端必須能存取該 Mac；純雲端聊天無法直接操作本機 iTerm2。
-3. 在 iTerm2 中安裝並完成 Claude Code、Codex 或其他目標 CLI 的驗證設定，確認新分頁中也能正常啟動。不要將憑證寫進提示詞。
+3. 在 iTerm2 中安裝並完成 Claude Code、Codex、Cursor Agent、Kiro CLI、DSH（`dsh` / `dsh-tui`）或其他目標 CLI 的驗證設定，確認新分頁中也能正常啟動（使用 `dsh headless` 時請確認 `DEEPSEEK_API_KEY` 或有效設定，因預設組態停用了互動式憑證外掛）。不要將憑證寫進提示詞。
 4. 驗證 MCP 工具探索及唯讀的 `list_sessions` 呼叫，再安裝本 skill。執行任務需要寫入工具；`--read-only` 服務只能觀察。
 
-完整步驟與版本更新請參閱 [MCP 安裝指南](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.zh-TW.md)。以下範例固定使用其文件中的 `0.2.3`，不表示後續版本不相容。
+完整步驟與版本更新請參閱 [MCP 安裝指南](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.zh-TW.md)。以下範例固定使用其文件中的 `0.2.5`，不表示後續版本不相容。
 
 ```text
 請在本機 Mac 上為 [目標用戶端] 安裝 goals-iterm-mcp。
@@ -29,11 +29,11 @@ Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases
 1. 閱讀專案安裝指南，檢查 macOS、iTerm2 與 uv/uvx。
    若缺少 uv，請依照 uv 官方說明安裝。
 2. 使用 Python 3.12 驗證套件可執行：
-   uvx --python 3.12 goals-iterm-mcp@0.2.3 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.5 --help
 3. 備份用戶端現有 MCP 設定，新增或更新一個名為 iterm 的本機 stdio 服務，
    保留無關設定並避免重複設定：
    command：本機 uvx 的絕對路徑
-   args：["--python", "3.12", "goals-iterm-mcp@0.2.3", "serve"]
+   args：["--python", "3.12", "goals-iterm-mcp@0.2.5", "serve"]
    使用目標用戶端支援的設定格式與位置。
 4. 如有需要，指導我啟用 iTerm2 Python API 並批准授權視窗。
    依支援的方式重新載入 MCP；需要手動重新啟動時說明具體步驟。
@@ -167,7 +167,7 @@ Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases
 透過 iTerm MCP 持續指揮終端中的 Coding CLI，直到以下任務通過驗收。
 
 專案目錄：[絕對路徑]
-執行 CLI：[Claude Code / Codex CLI]
+執行 CLI：[Claude Code / Codex CLI / Cursor Agent / Kiro CLI / dsh-tui / dsh]
 目標工作階段：[既有工作階段暱稱或 ID；沒有則建立專用工作階段]
 
 任務目標：
@@ -219,7 +219,7 @@ Skill 版本: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases
 
 ## 維護與驗證
 
-入口為 [SKILL.md](SKILL.md)，執行邊界見 [orchestrator.md](references/orchestrator.md)，工具語義見 [iterm-tools.md](references/iterm-tools.md)，監控、恢復及行為驗收情境見 [monitoring.md](references/monitoring.md)，清理恢復細節見 [closing-and-recovery.md](references/closing-and-recovery.md)。技能指引檔案統一使用英文，並保留多語言 README。工具約定依據 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；執行時以實際安裝版本的 schema 為準。
+入口為 [SKILL.md](SKILL.md)，執行邊界見 [orchestrator.md](references/orchestrator.md)，工具語義見 [iterm-tools.md](references/iterm-tools.md)，各 CLI 啟動、模型/思考強度/`bypass` 參數映射、續接與退出手冊見 [coding-clis.md](references/coding-clis.md)（涵蓋 `Claude Code`、`Codex`、`Cursor Agent`、`Kiro CLI` 與 `dsh` / `dsh-tui`），監控、恢復及行為驗收情境見 [monitoring.md](references/monitoring.md)，清理恢復細節見 [closing-and-recovery.md](references/closing-and-recovery.md)。技能指引檔案統一使用英文，並保留多語言 README。工具約定依據 cc-iterm-mcp 的 `src/goals_iterm_mcp/direct.py`；執行時以實際安裝版本的 schema 為準。
 
 修改後驗證 skill frontmatter 與相對引用，並推演監控協定末尾的情境。實際 CLI 驗證應使用專用測試工作階段，確認任務派發、決策、恢復及監控清理；靜態驗證不代表背景排程或實際 CLI 整合已通過。
 

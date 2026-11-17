@@ -69,7 +69,7 @@ Read the decision file "/absolute/path/g1-C03-v1.md" (dispatch ID: task-session-
 | Input/submission timeout with uncertain delivery | Mark delivery unknown and reconcile read-only; do not test by clearing or resending |
 | Unknown editor clearing behavior or residue after clearing | Stop automatic writes and report the input blocker. Do not cycle through keys or treat Ctrl-C, Ctrl-U, and Escape as universal clear commands |
 
-Switching an unsubmitted draft to a file does not require a CLI restart or consume network-recovery attempts. If the interface has become a shell, use the original startup/recovery protocol instead of sending the natural-language file instruction.
+Switching an unsubmitted draft to a file does not require a CLI restart or consume network-recovery attempts. If the interface has become a shell, use the original startup/recovery protocol—or re-invoke a turn-based CLI such as `dsh headless --session-id <id>` in the original `cwd` per [the Coding CLI playbooks](coding-clis.md#dsh-and-dsh-tui)—instead of sending a natural-language file instruction directly to zsh/bash.
 
 ## Focused validation scenarios
 

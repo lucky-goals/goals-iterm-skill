@@ -1,6 +1,6 @@
 # goals-iterm-skill
 
-Skill バージョン: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.7)
+Skill バージョン: [v0.3.8](https://github.com/lucky-goals/goals-iterm-skill/releases/tag/v0.3.8)
 
 [プロジェクトサイト](https://lucky-goals.github.io/goals-iterm-skill/)
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
@@ -17,10 +17,10 @@ Skill バージョン: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill
 
 1. 端末を実行する Mac に iTerm2 をインストールして起動し、**Settings → General → Magic → Python API** を有効にします。認可ダイアログが表示されたら接続を許可します。
 2. 調整役のクライアントに goals-iterm-mcp をローカル stdio サーバーとして設定します。クライアントはその Mac にアクセスできる必要があります。クラウドだけで動くチャットからローカル iTerm2 を直接操作することはできません。
-3. iTerm2 に Claude Code、Codex などの対象 CLI をインストールし、認証を済ませます。新しいタブでも正常に起動することを確認し、認証情報をプロンプトに含めないでください。
+3. iTerm2 に Claude Code、Codex、Cursor Agent、Kiro CLI、DSH（`dsh` / `dsh-tui`）などの対象 CLI をインストールし、認証を済ませます。新しいタブでも正常に起動することを確認し（`dsh headless` では既定プロファイルで対話式認証プラグインが無効なため、`DEEPSEEK_API_KEY` 等が有効か確認してください）、認証情報をプロンプトに含めないでください。
 4. MCP のツール検出と読み取り専用の `list_sessions` 呼び出しを確認してから、この skill をインストールします。作業の実行には入力用ツールが必要です。`--read-only` サーバーでは監視のみ可能です。
 
-詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.2.3` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
+詳しい手順とバージョン更新は [MCP インストールガイド](https://github.com/lucky-goals/goals-iterm-mcp/blob/main/README.ja.md)を参照してください。以下はガイドに記載された `0.2.5` を固定して使う例であり、将来のバージョンが非互換という意味ではありません。
 
 ```text
 この Mac 上で [対象クライアント] に goals-iterm-mcp を導入してください。
@@ -29,11 +29,11 @@ Skill バージョン: [v0.3.7](https://github.com/lucky-goals/goals-iterm-skill
 1. プロジェクトのインストールガイドを読み、macOS、iTerm2、uv/uvx を確認してください。
    uv がなければ、uv の公式手順に従ってインストールしてください。
 2. Python 3.12 でパッケージの起動を確認してください：
-   uvx --python 3.12 goals-iterm-mcp@0.2.3 --help
+   uvx --python 3.12 goals-iterm-mcp@0.2.5 --help
 3. クライアントの既存 MCP 設定をバックアップし、iterm という名前のローカル stdio
    サーバーを追加または更新してください。無関係な設定は保持し、重複を避けてください：
    command：この Mac の uvx の絶対パス
-   args：["--python", "3.12", "goals-iterm-mcp@0.2.3", "serve"]
+   args：["--python", "3.12", "goals-iterm-mcp@0.2.5", "serve"]
    対象クライアントが対応する設定形式と配置先を使用してください。
 4. 必要に応じて iTerm2 Python API の有効化と認可ダイアログの操作を案内してください。
    対応する方法で MCP を再読み込みし、手動で再起動が必要なら手順を示してください。
@@ -175,7 +175,7 @@ iTerm MCP 経由で端末内の Coding CLI に継続して指示し、以下の�
 完了条件を満たすまで進めてください。
 
 プロジェクトディレクトリ：[絶対パス]
-実行する CLI：[Claude Code / Codex CLI]
+実行する CLI：[Claude Code / Codex CLI / Cursor Agent / Kiro CLI / dsh-tui / dsh]
 対象セッション：[既存のニックネームまたは ID。なければ専用セッションを作成]
 
 タスクの目標：
@@ -233,7 +233,7 @@ iTerm MCP 経由で端末内の Coding CLI に継続して指示し、以下の�
 
 ## 保守と検証
 
-入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。スキルの指示ファイルは英語で統一し、多言語 README は維持しています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
+入口は [SKILL.md](SKILL.md) です。実行境界は [orchestrator.md](references/orchestrator.md)、ツールの仕様は [iterm-tools.md](references/iterm-tools.md)、各 CLI の起動・モデル/思考強度/`bypass` マッピング・継続・終了ガイドは [coding-clis.md](references/coding-clis.md)（`Claude Code`、`Codex`、`Cursor Agent`、`Kiro CLI`、`dsh` / `dsh-tui` に対応）、監視、復旧、動作検証シナリオは [monitoring.md](references/monitoring.md)、クリーンアップの復旧詳細は [closing-and-recovery.md](references/closing-and-recovery.md) を参照してください。スキルの指示ファイルは英語で統一し、多言語 README は維持しています。ツールの取り決めは cc-iterm-mcp の `src/goals_iterm_mcp/direct.py` に基づいていますが、実行時はインストール済みツールの schema を優先します。
 
 変更後は skill の frontmatter と相対リンクを検証し、監視プロトコル末尾のシナリオを確認してください。実際の CLI 検証には専用のテストセッションを使い、指示の送信、判断、復旧、監視の終了処理を確認します。静的検証だけでは、バックグラウンドのスケジューリングや実際の CLI 連携が動作することは保証されません。
 
